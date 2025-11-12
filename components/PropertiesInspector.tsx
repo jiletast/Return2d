@@ -531,7 +531,7 @@ const GameSettingsEditor: React.FC<{
                     onChange={handleResolutionChange}
                     className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1.5 text-sm w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 >
-                    {isCustom && <option value="custom">Personalizada ({gameWidth}x{gameHeight})</option>}
+                    {isCustom && <option value="custom">Personalizada ({gameWidth}x${gameHeight})</option>}
                     {availableResolutions.map(res => (
                         <option key={`${res.width}x${res.height}`} value={`${res.width}x${res.height}`}>
                             {res.width} x {res.height} ({res.name})
@@ -549,22 +549,51 @@ const GameSettingsEditor: React.FC<{
                     <input 
                         type="checkbox" 
                         checked={joystick?.enabled || false} 
-                        onChange={(e) => onUpdate({ joystick: { ...joystick!, enabled: e.target.checked } })}
+                        onChange={(e) => {
+                            const enabled = e.target.checked;
+                            const currentJoystick = projectData.joystick || {};
+                            onUpdate({ 
+                                joystick: { 
+                                    position: 'left', 
+                                    size: 120, 
+                                    opacity: 0.5,
+                                    ...currentJoystick,
+                                    enabled 
+                                } 
+                            });
+                        }}
                         className="form-checkbox bg-gray-700 border-gray-600 text-indigo-500 focus:ring-indigo-500" />
                     Habilitar Joystick Virtual
                 </label>
                 {joystick?.enabled && (
-                    <div className="flex flex-col bg-gray-800/50 p-2 rounded-md">
-                         <label className="text-xs text-gray-400 mb-1">Posición del Joystick</label>
-                         <div className="flex bg-gray-700 rounded-md p-1">
-                            <button
-                                onClick={() => onUpdate({ joystick: { ...joystick, position: 'left' }})}
-                                className={`flex-1 py-1 text-sm rounded transition-colors ${joystick.position !== 'right' ? 'bg-indigo-600 text-white' : 'hover:bg-gray-600'}`}
-                            >Izquierda</button>
-                            <button
-                                onClick={() => onUpdate({ joystick: { ...joystick, position: 'right' }})}
-                                className={`flex-1 py-1 text-sm rounded transition-colors ${joystick.position === 'right' ? 'bg-indigo-600 text-white' : 'hover:bg-gray-600'}`}
-                            >Derecha</button>
+                    <div className="space-y-2">
+                        <div className="flex flex-col bg-gray-800/50 p-2 rounded-md">
+                             <label className="text-xs text-gray-400 mb-1">Posición del Joystick</label>
+                             <div className="flex bg-gray-700 rounded-md p-1">
+                                <button
+                                    onClick={() => onUpdate({ joystick: { ...joystick, position: 'left' }})}
+                                    className={`flex-1 py-1 text-sm rounded transition-colors ${joystick.position !== 'right' ? 'bg-indigo-600 text-white' : 'hover:bg-gray-600'}`}
+                                >Izquierda</button>
+                                <button
+                                    onClick={() => onUpdate({ joystick: { ...joystick, position: 'right' }})}
+                                    className={`flex-1 py-1 text-sm rounded transition-colors ${joystick.position === 'right' ? 'bg-indigo-600 text-white' : 'hover:bg-gray-600'}`}
+                                >Derecha</button>
+                            </div>
+                        </div>
+                        <div className="bg-gray-800/50 p-2 rounded-md grid grid-cols-2 gap-2">
+                             <PropertyInput 
+                                label="Tamaño (px)" 
+                                type="number" 
+                                value={joystick.size ?? 120} 
+                                onChange={v => onUpdate({ joystick: { ...joystick, size: v as number }})} 
+                            />
+                            <PropertyInput 
+                                label="Opacidad (0-1)" 
+                                type="number" 
+                                step={0.1}
+                                value={joystick.opacity ?? 0.5} 
+                                onChange={v => onUpdate({ joystick: { ...joystick, opacity: Math.max(0, Math.min(1, v as number)) }})} 
+                            />
                         </div>
                     </div>
                 )}
@@ -593,9 +622,9 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
       onUpdateProjectData({ globalVariables: variables });
   };
 
-  if (width < 50) {
+  if (width < 50 && width > 0) {
     return (
-        <aside className="bg-gray-900 border-l border-gray-800 flex flex-col shrink-0 transition-all duration-300 ease-in-out p-2" style={{ width: `${width}px` }}>
+        <aside className="bg-gray-900 border-l border-gray-800 flex-col shrink-0 transition-all duration-300 ease-in-out p-2 hidden md:flex" style={{ width: `${width}px` }}>
              <button onClick={onToggleCollapse} title="Expandir Panel" className="p-2 hover:bg-gray-800 rounded-md">
                 <ExpandIcon />
             </button>
@@ -700,7 +729,7 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
   };
   
   const handleUpdateStats = (newStats: Partial<GameObject['stats']>) => {
-    handleUpdate({ stats: { ...selectedObject?.stats!, ...newStats } });
+    handleUpdate({ stats: { ...(selectedObject?.stats || {hp:0, maxHp:100, attack:10}), ...newStats } });
   };
 
   const handleToggleSolid = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -750,11 +779,11 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
   };
 
   return (
-    <aside className="bg-gray-900 border-l border-gray-800 flex flex-col shrink-0" style={{ width: `${width}px` }}>
+    <aside className="bg-gray-900 border-l border-gray-800 flex flex-col shrink-0 h-full md:h-auto md:w-auto" style={{ width: `${width}px` }}>
         {selectedObject ? (
             <>
                 <div className="p-2 border-b border-gray-800 flex justify-between items-center">
-                    <button onClick={onToggleCollapse} title="Colapsar Panel" className="p-2 -ml-2 hover:bg-gray-800 rounded-md">
+                    <button onClick={onToggleCollapse} title="Colapsar Panel" className="p-2 -ml-2 hover:bg-gray-800 rounded-md hidden md:block">
                         <CollapseIcon />
                     </button>
                     <h2 className="text-lg font-semibold truncate px-2">{selectedObject.name}</h2>
@@ -782,8 +811,8 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                     <div className="pt-4 border-t border-gray-800 space-y-2">
                         <h3 className="font-semibold text-xs uppercase tracking-wider">Transformación</h3>
                         <div className="grid grid-cols-2 gap-2">
-                            <PropertyInput label="X" type="number" value={Math.round(selectedObject.x)} onChange={(val) => handleUpdate({ x: val as number })} />
-                            <PropertyInput label="Y" type="number" value={Math.round(selectedObject.y)} onChange={(val) => handleUpdate({ y: val as number })} />
+                            <PropertyInput label="X" type="number" step={0.1} value={selectedObject.x} onChange={(val) => handleUpdate({ x: val as number })} />
+                            <PropertyInput label="Y" type="number" step={0.1} value={selectedObject.y} onChange={(val) => handleUpdate({ y: val as number })} />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <PropertyInput label="Ancho" type="number" value={selectedObject.width} onChange={(val) => handleUpdate({ width: val as number })} />
@@ -1039,7 +1068,7 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
         ) : (
              <>
                 <div className="p-2 border-b border-gray-800 flex justify-between items-center">
-                    <button onClick={onToggleCollapse} title="Colapsar Panel" className="p-2 -ml-2 hover:bg-gray-800 rounded-md">
+                    <button onClick={onToggleCollapse} title="Colapsar Panel" className="p-2 -ml-2 hover:bg-gray-800 rounded-md hidden md:block">
                         <CollapseIcon />
                     </button>
                     <h2 className="text-lg font-semibold">Propiedades</h2>

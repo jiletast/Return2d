@@ -269,9 +269,9 @@ const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ scenes, activeSceneId, 
     onUpdateObject(childId, { parentId });
   };
 
-  if (width < 50) {
+  if (width < 50 && width > 0) {
     return (
-        <aside className="bg-gray-900 border-r border-gray-800 flex flex-col shrink-0 transition-all duration-300 ease-in-out p-2" style={{ width: `${width}px` }}>
+        <aside className="bg-gray-900 border-r border-gray-800 flex-col shrink-0 transition-all duration-300 ease-in-out p-2 hidden md:flex" style={{ width: `${width}px` }}>
              <button onClick={onToggleCollapse} title="Expandir Panel" className="p-2 hover:bg-gray-800 rounded-md">
                 <ExpandIcon />
             </button>
@@ -289,11 +289,11 @@ const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ scenes, activeSceneId, 
   );
 
   return (
-    <aside className="bg-gray-900 border-r border-gray-800 flex flex-col shrink-0" style={{ width: `${width}px` }}>
+    <aside className="bg-gray-900 border-r border-gray-800 flex flex-col shrink-0 h-full md:h-auto md:w-auto" style={{ width: `${width}px` }}>
       <div className="p-2 border-b border-gray-800">
         <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Escena</h2>
-             <button onClick={onToggleCollapse} title="Colapsar Panel" className="p-2 -mr-2 hover:bg-gray-800 rounded-md">
+             <button onClick={onToggleCollapse} title="Colapsar Panel" className="p-2 -mr-2 hover:bg-gray-800 rounded-md hidden md:block">
                 <CollapseIcon />
             </button>
         </div>

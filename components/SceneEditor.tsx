@@ -506,7 +506,7 @@ const SceneEditor: React.FC<SceneEditorProps> = ({ scene, objects, selectedId, o
 
   return (
     <div className="flex-grow flex flex-col bg-gray-950 relative">
-      <div className="flex items-center gap-2 p-2 bg-gray-900 border-b border-gray-800 shrink-0">
+      <div className="flex items-center gap-2 p-2 bg-gray-900 border-b border-gray-800 shrink-0 flex-wrap">
         <button onClick={handleAddGameObjectClick} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-md text-sm transition-colors">
           <PlusIcon />
           Añadir Objeto

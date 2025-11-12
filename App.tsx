@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { Project, ProjectData, GameObject, Scene, GameAsset, Animation, Variable, CollisionProperties } from './types';
 
 import SplashScreen from './components/SplashScreen';
@@ -18,8 +18,31 @@ import { SpriteEditor } from './components/SpriteEditor';
 import AudioLab from './components/AudioLab';
 import SoundtrackEditor from './components/SoundtrackEditor';
 import Toast from './components/Toast';
+import { HierarchyIcon } from './components/icons/HierarchyIcon';
+import { EditorIcon } from './components/icons/EditorIcon';
+import { InspectorIcon } from './components/icons/InspectorIcon';
+
 
 const PROJECTS_STORAGE_KEY = 'return2d-projects';
+const NOTICE_ACCEPTED_KEY = 'return2d-notice-accepted';
+
+const NoticeModal: React.FC<{ onAccept: () => void }> = ({ onAccept }) => (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4">
+        <div className="bg-gray-900 rounded-lg shadow-2xl border border-gray-800 w-full max-w-md p-6 text-center">
+            <h2 className="text-xl font-bold mb-4 text-yellow-400">Aviso Importante</h2>
+            <p className="text-gray-300 mb-6">
+                Este programa es un prototipo y tiene algunos errores que se mejorarán en el futuro. Si encuentras uno, por favor, ¡ponlo en los comentarios! Gracias por tu ayuda.
+            </p>
+            <button
+                onClick={onAccept}
+                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md transition-colors text-white font-semibold"
+            >
+                Aceptar
+            </button>
+        </div>
+    </div>
+);
+
 
 const createNewScene = (name: string): Scene => {
     const sceneId = `scene_${Date.now()}`;
@@ -51,7 +74,7 @@ const createNewProjectData = (): ProjectData => {
         orientation: 'landscape',
         gameWidth: 1024,
         gameHeight: 768,
-        joystick: { enabled: false, position: 'left' },
+        joystick: { enabled: false, position: 'left', size: 120, opacity: 0.5 },
     };
 };
 
@@ -62,6 +85,7 @@ const App: React.FC = () => {
     const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
     const [activeProjectData, setActiveProjectData] = useState<ProjectData | null>(null);
     const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null);
+    const [showNotice, setShowNotice] = useState(false);
     
     // Editor view states
     const [isPlaying, setIsPlaying] = useState(false);
@@ -77,8 +101,16 @@ const App: React.FC = () => {
     
     const [toast, setToast] = useState({ show: false, message: '' });
 
+    const [mobileTab, setMobileTab] = useState<'hierarchy' | 'editor' | 'inspector'>('editor');
+    const prevProjectIdRef = useRef<string | null>(null);
+
     // Load projects from localStorage on initial mount
     useEffect(() => {
+        const noticeAccepted = localStorage.getItem(NOTICE_ACCEPTED_KEY);
+        if (noticeAccepted !== 'true') {
+            setShowNotice(true);
+        }
+
         // Simulate loading assets, parsing data, etc. for a better UX
         const timer = setTimeout(() => {
             try {
@@ -106,18 +138,28 @@ const App: React.FC = () => {
         }
     }, [projects, isLoading]);
     
-    // Set active project data when active project ID changes
+    // Set active project data when active project ID changes or projects array is updated
     useEffect(() => {
         if (activeProjectId) {
             const project = projects.find(p => p.id === activeProjectId);
             if (project) {
                 setActiveProjectData(JSON.parse(JSON.stringify(project.data)));
-                setSelectedObjectId(null);
+                // Only reset selection if the project ID has actually changed
+                if (prevProjectIdRef.current !== activeProjectId) {
+                    setSelectedObjectId(null);
+                }
             }
         } else {
             setActiveProjectData(null);
         }
+        // Update the ref for the next render
+        prevProjectIdRef.current = activeProjectId;
     }, [activeProjectId, projects]);
+    
+    const handleAcceptNotice = () => {
+        localStorage.setItem(NOTICE_ACCEPTED_KEY, 'true');
+        setShowNotice(false);
+    };
 
     const showToastMessage = (message: string) => {
       setToast({ show: true, message });
@@ -195,6 +237,7 @@ const App: React.FC = () => {
             id: newId,
             name: `Objeto_${newId}`,
             x: 100, y: 100, width: 50, height: 50, color: '#8b5cf6', zIndex: 1,
+            stats: { hp: 100, maxHp: 100, attack: 10 },
             ...initialProps
         };
         const newScenes = activeProjectData.scenes.map(s => s.id === activeScene.id ? {...s, gameObjects: [...s.gameObjects, newObject] } : s);
@@ -238,6 +281,22 @@ const App: React.FC = () => {
         handleUpdateProjectData({ ...activeProjectData, assets: newAssets }, true);
         setShowSpriteEditor(null);
     };
+    
+    const MobileTabButton: React.FC<{
+        tab: 'hierarchy' | 'editor' | 'inspector';
+        label: string;
+        icon: React.ReactNode;
+    }> = ({ tab, label, icon }) => (
+        <button
+            onClick={() => setMobileTab(tab)}
+            className={`flex flex-col items-center justify-center p-1 w-24 rounded-md transition-colors ${
+                mobileTab === tab ? 'text-indigo-400 bg-gray-800' : 'text-gray-400'
+            }`}
+        >
+            {icon}
+            <span className="text-xs mt-1">{label}</span>
+        </button>
+    );
 
     if (isLoading) return <SplashScreen />;
 
@@ -251,6 +310,7 @@ const App: React.FC = () => {
     
     return (
         <div className="flex flex-col h-screen bg-gray-950 text-white font-sans">
+            {showNotice && <NoticeModal onAccept={handleAcceptNotice} />}
             <Header
                 projectName={projects.find(p=>p.id === activeProjectId)?.name || 'Sin Título'}
                 onUpdateProjectName={handleUpdateObjectName}
@@ -260,60 +320,73 @@ const App: React.FC = () => {
                 onExport={() => setShowExportModal(true)}
                 onReturnToStart={handleReturnToStart}
             />
-            <main className="flex-grow flex overflow-hidden">
-                <SceneHierarchy
-                    width={leftPanelWidth}
-                    onToggleCollapse={() => setLeftPanelWidth(w => w > 0 ? 0 : 280)}
-                    scenes={activeProjectData.scenes}
-                    activeSceneId={activeProjectData.activeSceneId}
-                    onSelectScene={id => handleUpdateProjectData({...activeProjectData, activeSceneId: id}, true)}
-                    onAddScene={() => {
-                        const newScene = createNewScene(`Escena ${activeProjectData.scenes.length + 1}`);
-                        handleUpdateProjectData({...activeProjectData, scenes: [...activeProjectData.scenes, newScene], activeSceneId: newScene.id }, true);
-                    }}
-                    onCloneScene={(id) => {
-                        const sceneToClone = activeProjectData.scenes.find(s=>s.id === id);
-                        if (!sceneToClone) return;
-                        const newScene = JSON.parse(JSON.stringify(sceneToClone));
-                        newScene.id = `scene_${Date.now()}`;
-                        newScene.name = `${sceneToClone.name} Copia`;
-                        handleUpdateProjectData({...activeProjectData, scenes: [...activeProjectData.scenes, newScene], activeSceneId: newScene.id}, true);
-                    }}
-                    objects={activeScene?.gameObjects || []}
-                    selectedId={selectedObjectId}
-                    onSelect={handleSelectObject}
-                    onUpdateObject={handleUpdateObject}
-                    assets={activeProjectData.assets}
-                    onAddAsset={handleAddAsset}
-                    onUpdateAsset={(asset) => {}}
-                    onOpenAnimationEditor={() => setShowAnimationEditor(true)}
-                    onOpenSpriteEditor={(assetId) => setShowSpriteEditor({asset: activeProjectData.assets.find(a=>a.id === assetId) || null})}
-                    onOpenAudioLab={() => setShowAudioLab(true)}
-                    onOpenSoundtrackEditor={() => setShowSoundtrackEditor(true)}
-                />
-                <SceneEditor
-                    scene={activeScene}
-                    objects={activeScene?.gameObjects || []}
-                    selectedId={selectedObjectId}
-                    onSelect={handleSelectObject}
-                    onUpdateObject={handleUpdateObject}
-                    onAddObject={handleAddObject}
-                    onOpenEventEditor={() => setShowEventEditor(true)}
-                    gameWidth={activeProjectData.gameWidth || 1024}
-                    gameHeight={activeProjectData.gameHeight || 768}
-                />
-                <PropertiesInspector
-                    width={rightPanelWidth}
-                    onToggleCollapse={() => setRightPanelWidth(w => w > 0 ? 0 : 320)}
-                    selectedObject={selectedObject}
-                    projectData={activeProjectData}
-                    onUpdateProjectData={(updates) => handleUpdateProjectData({...activeProjectData, ...updates}, true)}
-                    onUpdateObject={handleUpdateObject}
-                    onDeleteObject={handleDeleteObject}
-                    onCloneObject={handleCloneObject}
-                    onAddAsset={handleAddAsset}
-                />
+            <main className="flex-grow flex flex-col md:flex-row overflow-hidden">
+                <div className={`${mobileTab === 'hierarchy' ? 'flex' : 'hidden'} md:flex w-full h-full md:w-auto md:h-auto`}>
+                    <SceneHierarchy
+                        width={leftPanelWidth}
+                        onToggleCollapse={() => setLeftPanelWidth(w => w > 0 ? 0 : 280)}
+                        scenes={activeProjectData.scenes}
+                        activeSceneId={activeProjectData.activeSceneId}
+                        onSelectScene={id => handleUpdateProjectData({...activeProjectData, activeSceneId: id}, true)}
+                        onAddScene={() => {
+                            const newScene = createNewScene(`Escena ${activeProjectData.scenes.length + 1}`);
+                            handleUpdateProjectData({...activeProjectData, scenes: [...activeProjectData.scenes, newScene], activeSceneId: newScene.id }, true);
+                        }}
+                        onCloneScene={(id) => {
+                            const sceneToClone = activeProjectData.scenes.find(s=>s.id === id);
+                            if (!sceneToClone) return;
+                            const newScene = JSON.parse(JSON.stringify(sceneToClone));
+                            newScene.id = `scene_${Date.now()}`;
+                            newScene.name = `${sceneToClone.name} Copia`;
+                            handleUpdateProjectData({...activeProjectData, scenes: [...activeProjectData.scenes, newScene], activeSceneId: newScene.id}, true);
+                        }}
+                        objects={activeScene?.gameObjects || []}
+                        selectedId={selectedObjectId}
+                        onSelect={handleSelectObject}
+                        onUpdateObject={handleUpdateObject}
+                        assets={activeProjectData.assets}
+                        onAddAsset={handleAddAsset}
+                        onUpdateAsset={(asset) => {}}
+                        onOpenAnimationEditor={() => setShowAnimationEditor(true)}
+                        onOpenSpriteEditor={(assetId) => setShowSpriteEditor({asset: activeProjectData.assets.find(a=>a.id === assetId) || null})}
+                        onOpenAudioLab={() => setShowAudioLab(true)}
+                        onOpenSoundtrackEditor={() => setShowSoundtrackEditor(true)}
+                    />
+                </div>
+                <div className={`${mobileTab === 'editor' ? 'flex' : 'hidden'} md:flex flex-grow w-full h-full`}>
+                    <SceneEditor
+                        scene={activeScene}
+                        objects={activeScene?.gameObjects || []}
+                        selectedId={selectedObjectId}
+                        onSelect={handleSelectObject}
+                        onUpdateObject={handleUpdateObject}
+                        onAddObject={handleAddObject}
+                        onOpenEventEditor={() => setShowEventEditor(true)}
+                        gameWidth={activeProjectData.gameWidth || 1024}
+                        gameHeight={activeProjectData.gameHeight || 768}
+                    />
+                </div>
+                 <div className={`${mobileTab === 'inspector' ? 'flex' : 'hidden'} md:flex w-full h-full md:w-auto md:h-auto`}>
+                    <PropertiesInspector
+                        width={rightPanelWidth}
+                        onToggleCollapse={() => setRightPanelWidth(w => w > 0 ? 0 : 320)}
+                        selectedObject={selectedObject}
+                        projectData={activeProjectData}
+                        onUpdateProjectData={(updates) => handleUpdateProjectData({...activeProjectData, ...updates}, true)}
+                        onUpdateObject={handleUpdateObject}
+                        onDeleteObject={handleDeleteObject}
+                        onCloneObject={handleCloneObject}
+                        onAddAsset={handleAddAsset}
+                    />
+                </div>
             </main>
+            
+            <div className="md:hidden flex justify-around p-2 bg-black border-t border-gray-800 shrink-0">
+                <MobileTabButton tab="hierarchy" label="Jerarquía" icon={<HierarchyIcon />} />
+                <MobileTabButton tab="editor" label="Editor" icon={<EditorIcon />} />
+                <MobileTabButton tab="inspector" label="Propiedades" icon={<InspectorIcon />} />
+            </div>
+
 
             {isPlaying && activeScene && (
                 <GameView
@@ -346,15 +419,15 @@ const App: React.FC = () => {
                 globalVariables={activeProjectData.globalVariables || []}
                 onAddEvent={(event) => {
                     const newScenes = activeProjectData.scenes.map(s => s.id === activeScene.id ? {...s, events: [...s.events, event]} : s);
-                    handleUpdateProjectData({...activeProjectData, scenes: newScenes}, true);
+                    handleUpdateProjectData({...activeProjectData, scenes: newScenes }, true);
                 }}
                 onUpdateEvent={(event) => {
                     const newScenes = activeProjectData.scenes.map(s => s.id === activeScene.id ? {...s, events: s.events.map(e => e.id === event.id ? event : e)} : s);
-                    handleUpdateProjectData({...activeProjectData, scenes: newScenes}, true);
+                    handleUpdateProjectData({...activeProjectData, scenes: newScenes }, true);
                 }}
                 onDeleteEvent={(eventId) => {
                      const newScenes = activeProjectData.scenes.map(s => s.id === activeScene.id ? {...s, events: s.events.filter(e => e.id !== eventId)} : s);
-                    handleUpdateProjectData({...activeProjectData, scenes: newScenes}, true);
+                    handleUpdateProjectData({...activeProjectData, scenes: newScenes }, true);
                 }}
             />}
 

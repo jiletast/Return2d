@@ -43,8 +43,9 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
         let intervals = new Map();
         let joystickState = { active: false, angle: 0, distance: 0 };
         let joystickTouchId = null;
+        let joystickUpPreviousFrame = false;
         window.audioContext = null;
-        const joystickSize = 120;
+        let joystickSize = 120;
 
         const getObjectAbsolutePosition = (objectId, objectsById) => {
             let currentId = objectId;
@@ -471,12 +472,35 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                 if (!actionsPressed[act+'_ui']) actionsPressed[act] = false;
             });
             
+            const joystickUpNow = joystickState.active && joystickState.angle > -135 && joystickState.angle < -45;
+
+            if (joystickUpNow && !joystickUpPreviousFrame) {
+                actionsPressed.jump = true;
+            }
+            joystickUpPreviousFrame = joystickUpNow;
+
             if (joystickState.active) {
                 const angle = joystickState.angle;
-                if (angle > -45 && angle <= 45) { actionsPressed.moveRight = true; frameJoystickEvents.push('right'); }
-                if (angle > 45 && angle <= 135) { actionsPressed.moveDown = true; frameJoystickEvents.push('down'); }
-                if (angle > 135 || angle <= -135) { actionsPressed.moveLeft = true; frameJoystickEvents.push('left'); }
-                if (angle > -135 && angle <= -45) { actionsPressed.moveUp = true; frameJoystickEvents.push('up'); }
+                const angleRad = angle * (Math.PI / 180);
+                const horizontalProjection = Math.cos(angleRad);
+                
+                if (horizontalProjection > 0.15) {
+                   actionsPressed.moveRight = true;
+                   if (!frameJoystickEvents.includes('right')) frameJoystickEvents.push('right');
+                } else if (horizontalProjection < -0.15) {
+                   actionsPressed.moveLeft = true;
+                   if (!frameJoystickEvents.includes('left')) frameJoystickEvents.push('left');
+                }
+
+                if (angle > 45 && angle < 135) {
+                   actionsPressed.moveDown = true;
+                   if (!frameJoystickEvents.includes('down')) frameJoystickEvents.push('down');
+                }
+
+                if (joystickUpNow) {
+                    actionsPressed.moveUp = true;
+                    if (!frameJoystickEvents.includes('up')) frameJoystickEvents.push('up');
+                }
             }
             
             if (keysPressed['arrowleft'] || keysPressed['keya']) actionsPressed.moveLeft = true;
@@ -787,10 +811,6 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
         }
         
         async function startGame(data) {
-            const loadingScreen = document.getElementById('loading-screen');
-            const progressBar = document.getElementById('progress-bar');
-            const loadingText = document.getElementById('loading-text');
-
             canvas.width = data.gameWidth || 1024;
             canvas.height = data.gameHeight || 768;
             allScenes = data.scenes; 
@@ -816,59 +836,29 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                 } else resolve();
             }));
 
-            let loadedCount = 0;
-            const totalAssets = assetPromises.length;
-            if (totalAssets === 0) {
-                 progressBar.style.width = '100%';
-            } else {
-                for (const promise of assetPromises) {
-                    promise.then(() => {
-                        loadedCount++;
-                        const progress = (loadedCount / totalAssets) * 100;
-                        progressBar.style.width = progress + '%';
-                    }).catch(() => {
-                        // Still count failed assets to finish loading
-                        loadedCount++;
-                        const progress = (loadedCount / totalAssets) * 100;
-                        progressBar.style.width = progress + '%';
-                    });
-                }
-            }
-
             await Promise.allSettled(assetPromises);
-
-            loadingText.innerText = '¡Listo! Haz clic para empezar.';
-            loadingScreen.style.cursor = 'pointer';
             
-            loadingScreen.addEventListener('click', () => {
-                loadingScreen.classList.add('hidden');
-                
-                if (!window.audioContext) {
-                    try {
-                        window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    } catch(e) { console.error("Web Audio API not supported"); }
-                }
-                if (window.audioContext?.state === 'suspended') {
-                    window.audioContext.resume();
-                }
-                
-                const preservedVars = { ...gameVariables };
-                (data.globalVariables || []).forEach(v => {
-                    if (preservedVars[v.name] === undefined) preservedVars[v.name] = v.value;
-                });
-                gameVariables = preservedVars;
-                
-                const startingScene = data.scenes.find(s => s.id === data.activeSceneId);
-                if(startingScene) {
-                    loadSceneByName(startingScene.name);
-                }
-            }, { once: true });
+            const preservedVars = { ...gameVariables };
+            (data.globalVariables || []).forEach(v => {
+                if (preservedVars[v.name] === undefined) preservedVars[v.name] = v.value;
+            });
+            gameVariables = preservedVars;
+            
+            const startingScene = data.scenes.find(s => s.id === data.activeSceneId);
+            if(startingScene) {
+                loadSceneByName(startingScene.name);
+            }
         }
 
         window.addEventListener('keydown', (e) => { keysPressed[e.code.toLowerCase()] = true; });
         window.addEventListener('keyup', (e) => { keysPressed[e.code.toLowerCase()] = false; });
         
         canvas.addEventListener('click', (e) => {
+            if (!window.audioContext) {
+                try { window.audioContext = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+            }
+            if (window.audioContext?.state === 'suspended') window.audioContext.resume();
+
             if (dialogueElement) { dialogueElement.remove(); dialogueElement = null; return; }
             const rect = canvas.getBoundingClientRect();
             const scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
@@ -926,16 +916,17 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             });
             
             if (window.projectData.joystick?.enabled) {
+                joystickSize = window.projectData.joystick.size || 120;
                 const joystickBase = document.createElement('div');
                 const joystickHandle = document.createElement('div');
-                const handleSize = 50;
+                const handleSize = joystickSize / 2.4;
                 
                 joystickBase.style.position = 'absolute';
                 joystickBase.style.bottom = '40px';
                 joystickBase.style[window.projectData.joystick.position || 'left'] = '40px';
                 joystickBase.style.width = joystickSize + 'px';
                 joystickBase.style.height = joystickSize + 'px';
-                joystickBase.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                joystickBase.style.backgroundColor = 'rgba(255, 255, 255, ' + (window.projectData.joystick.opacity ?? 0.1) + ')';
                 joystickBase.style.borderRadius = '50%';
                 joystickBase.style.pointerEvents = 'auto';
                 joystickBase.style.userSelect = 'none';
@@ -1044,20 +1035,9 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
         canvas { display: block; image-rendering: pixelated; image-rendering: -moz-crisp-edges; image-rendering: crisp-edges; max-width: 100%; max-height: 100%; }
         #ui-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); pointer-events: none; }
         #ui-container button, #ui-container div { pointer-events: auto; }
-        #loading-screen { position: fixed; inset: 0; background-color: #111827; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease-out; }
-        #loading-screen.hidden { opacity: 0; pointer-events: none; }
-        #loading-text { font-size: 2rem; font-weight: bold; margin-bottom: 1rem; }
-        #progress-bar-container { width: 80%; max-width: 400px; height: 20px; background-color: #1f2937; border-radius: 10px; overflow: hidden; border: 2px solid #374151; }
-        #progress-bar { width: 0%; height: 100%; background-color: #4f46e5; border-radius: 8px; transition: width 0.3s ease-in-out; }
     </style>
 </head>
 <body>
-    <div id="loading-screen">
-        <div id="loading-text">Cargando...</div>
-        <div id="progress-bar-container">
-            <div id="progress-bar"></div>
-        </div>
-    </div>
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         <div id="ui-container"></div>

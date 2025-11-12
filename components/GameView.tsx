@@ -68,7 +68,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameObjectsRef = useRef<GameObject[]>([]);
   const keysPressed = useRef<Record<string, boolean>>({});
-  const actionsPressed = useRef<Record<string, boolean>>({});
+  const actionsPressed = useRef<Record<string, boolean & { wasJoystickUp?: boolean }>>({});
   const gameVariables = useRef<Record<string, string | number | boolean>>({});
   const activeAnimations = useRef<Map<number, ActiveAnimation>>(new Map());
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -93,6 +93,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
   const joystickBaseRef = useRef<HTMLDivElement>(null);
   const joystickTouchId = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const joystickUpPreviousFrame = useRef(false);
 
     const executeAction = (action: Action, self?: GameObject) => {
       let targetObj : GameObject | undefined;
@@ -605,7 +606,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
 
       const objectsById = new Map<number, GameObject>(gameObjectsRef.current.map(o => [o.id, o]));
       
-      const staticCollisionShapes: ({ x: number, y: number, width: number, height: number, owner: GameObject })[] = [];
+      const staticCollisionShapes: ({ x: number; y: number; width: number; height: number; owner: GameObject })[] = [];
         const allObjectsWithAbsPosForPhysics = gameObjectsRef.current.map(o => ({...o, ...getObjectAbsolutePosition(o.id, objectsById)}));
         
         allObjectsWithAbsPosForPhysics.forEach(obj => {
@@ -641,19 +642,43 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
         if (!actions[act+'_ui']) actions[act] = false;
       });
 
+      const joystickUpNow = joystickState.active && joystickState.angle > -135 && joystickState.angle < -45;
+      
+      if (joystickUpNow && !joystickUpPreviousFrame.current) {
+          actions.jump = true;
+      }
+      joystickUpPreviousFrame.current = joystickUpNow;
+
       if (joystickState.active) {
           const angle = joystickState.angle;
-          if (angle > -45 && angle <= 45) { actions.moveRight = true; frameJoystickEvents.current.push('right'); }
-          if (angle > 45 && angle <= 135) { actions.moveDown = true; frameJoystickEvents.current.push('down'); }
-          if (angle > 135 || angle <= -135) { actions.moveLeft = true; frameJoystickEvents.current.push('left'); }
-          if (angle > -135 && angle <= -45) { actions.moveUp = true; frameJoystickEvents.current.push('up'); }
+          const angleRad = angle * (Math.PI / 180);
+          const horizontalProjection = Math.cos(angleRad);
+          
+          if (horizontalProjection > 0.15) { // Threshold to avoid moving when joystick is almost vertical
+             actions.moveRight = true;
+             if (!frameJoystickEvents.current.includes('right')) frameJoystickEvents.current.push('right');
+          } else if (horizontalProjection < -0.15) {
+             actions.moveLeft = true;
+             if (!frameJoystickEvents.current.includes('left')) frameJoystickEvents.current.push('left');
+          }
+
+          // Keep vertical logic for events
+          if (angle > 45 && angle < 135) {
+             actions.moveDown = true;
+             if (!frameJoystickEvents.current.includes('down')) frameJoystickEvents.current.push('down');
+          }
+
+          if (joystickUpNow) {
+              actions.moveUp = true;
+              if (!frameJoystickEvents.current.includes('up')) frameJoystickEvents.current.push('up');
+          }
       }
       
       if (keysPressed.current['arrowleft'] || keysPressed.current['keya']) actions.moveLeft = true;
       if (keysPressed.current['arrowright'] || keysPressed.current['keyd']) actions.moveRight = true;
       if (keysPressed.current['arrowup'] || keysPressed.current['keyw']) actions.moveUp = true;
       if (keysPressed.current['arrowdown'] || keysPressed.current['keys']) actions.moveDown = true;
-      if (keysPressed.current['space'] || actions.jump) actions.jump = true;
+      if (keysPressed.current['space']) actions.jump = true;
       if (keysPressed.current['keyx'] || actions.attack) actions.attack = true;
       
       if (actions.jump) {
@@ -724,7 +749,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
               obj.vy = 0;
               
               if (joystickState.active) {
-                  const joystickSize = 120;
+                  const joystickSize = joystick?.size ?? 120;
                   const maxDistance = joystickSize / 2;
                   const intensity = joystickState.distance / maxDistance;
                   const angleRad = joystickState.angle * Math.PI / 180;
@@ -1119,8 +1144,8 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
     }
   };
   
-  const joystickSize = 120;
-  const handleSize = 50;
+  const joystickSize = joystick?.size ?? 120;
+  const joystickHandleSize = joystickSize / 2.4;
 
   const updateJoystickState = (touch: React.Touch | Touch) => {
     const base = joystickBaseRef.current;
@@ -1273,7 +1298,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                       [joystick.position || 'left']: '40px',
                       width: `${joystickSize}px`,
                       height: `${joystickSize}px`,
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      backgroundColor: `rgba(255, 255, 255, ${joystick.opacity ?? 0.1})`,
                       borderRadius: '50%',
                       pointerEvents: 'auto',
                       userSelect: 'none'
@@ -1281,15 +1306,15 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
               >
                   <div style={{
                       position: 'absolute',
-                      width: `${handleSize}px`,
-                      height: `${handleSize}px`,
+                      width: `${joystickHandleSize}px`,
+                      height: `${joystickHandleSize}px`,
                       backgroundColor: 'rgba(255, 255, 255, 0.3)',
                       borderRadius: '50%',
                       transform: joystickState.active 
                           ? `translate(${joystickState.distance * Math.cos(joystickState.angle * Math.PI / 180)}px, ${joystickState.distance * Math.sin(joystickState.angle * Math.PI / 180)}px)`
                           : 'translate(0, 0)',
-                      left: `calc(50% - ${handleSize / 2}px)`,
-                      top: `calc(50% - ${handleSize / 2}px)`,
+                      left: `calc(50% - ${joystickHandleSize / 2}px)`,
+                      top: `calc(50% - ${joystickHandleSize / 2}px)`,
                       transition: 'transform 50ms linear'
                   }}/>
               </div>

@@ -143,6 +143,8 @@ export interface ProjectData {
   joystick?: {
     enabled: boolean;
     position: 'left' | 'right';
+    size?: number;
+    opacity?: number;
   };
 }
 
