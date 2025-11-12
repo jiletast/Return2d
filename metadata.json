@@ -1,0 +1,5 @@
+{
+  "name": "Cc Return 2D game Engine",
+  "description": "A visual 2D game engine prototype that uses AI to generate game logic from natural language. Design game scenes, manage assets, and create events without writing any code. Features a mock-up of subscription plans.",
+  "requestFramePermissions": []
+}
