@@ -46,6 +46,43 @@ interface PropertiesInspectorProps {
   onToggleCollapse: () => void;
 }
 
+const ItemSelectorModal: React.FC<{
+  title: string;
+  categorizedItems: { category: string, options: { value: string, label: string }[] }[];
+  onSelect: (value: string) => void;
+  onClose: () => void;
+}> = ({ title, categorizedItems, onSelect, onClose }) => {
+    const [activeCategory, setActiveCategory] = useState(categorizedItems[0].category);
+    
+    return (
+        <div className="absolute inset-0 bg-gray-900 bg-opacity-80 z-20 flex flex-col p-2" onClick={onClose}>
+            <div className="bg-gray-800 rounded-lg p-2 border border-gray-700 flex flex-col max-h-full" onClick={e => e.stopPropagation()}>
+                <h4 className="text-sm font-bold mb-2 p-2 text-center border-b border-gray-700">{title}</h4>
+                <div className="flex-grow flex min-h-[200px]">
+                    <aside className="w-1/3 border-r border-gray-700 pr-2 overflow-y-auto">
+                        {categorizedItems.map(group => (
+                            <button key={group.category} onClick={() => setActiveCategory(group.category)} 
+                                className={`w-full text-left text-sm p-2 rounded-md ${activeCategory === group.category ? 'bg-indigo-600' : 'hover:bg-gray-700'}`}>
+                                {group.category}
+                            </button>
+                        ))}
+                    </aside>
+                    <main className="w-2/3 pl-2 overflow-y-auto">
+                        <ul>
+                        {(categorizedItems.find(g => g.category === activeCategory)?.options || []).map(option => (
+                            <li key={option.value} onClick={() => onSelect(option.value)} 
+                                className="p-2 rounded-md hover:bg-indigo-600 cursor-pointer">
+                                <h5 className="font-semibold text-sm">{option.label}</h5>
+                            </li>
+                        ))}
+                        </ul>
+                    </main>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const PropertyInput: React.FC<{ label: string; value: string | number; onChange: (value: string | number) => void; type?: string; step?: number }> = ({ label, value, onChange, type = 'text', step = 1 }) => (
   <div className="flex flex-col">
     <label className="text-xs text-gray-400 mb-1">{label}</label>
@@ -144,30 +181,56 @@ const ObjectScriptsEditor: React.FC<{
     onUpdate: (scripts: ObjectScript[]) => void;
     projectData: ProjectData;
 }> = ({ scripts, onUpdate, projectData }) => {
+    const [selectorState, setSelectorState] = useState<{type: 'trigger' | 'action', scriptId: string, actionIndex?: number} | null>(null);
     
     const { scenes, assets, animations, globalVariables } = projectData;
     const objectNames = scenes.find(s => s.id === projectData.activeSceneId)?.gameObjects.map(o => o.name) ?? [];
 
-    const triggerOptions: { value: ObjectTrigger, label: string, needsTarget?: boolean, needsParams?: string[] }[] = [
-        { value: 'OnStart', label: 'Al Iniciar' },
-        { value: 'OnUpdate', label: 'Al Actualizar (Cada Fotograma)' },
-        { value: 'OnClick', label: 'Al Hacer Clic' },
-        { value: 'OnCollisionWith', label: 'Al Colisionar Con', needsTarget: true },
-        { value: 'CompareObjectVariable', label: 'Al Comparar Variable', needsParams: ['variable', 'operator', 'value'] },
+    // FIX: Explicitly type categorizedTriggerOptions to avoid type widening of string literals.
+    const categorizedTriggerOptions: {
+      category: string;
+      options: {
+          value: ObjectTrigger;
+          label: string;
+          needsTarget?: boolean;
+          needsParams?: string[];
+      }[];
+    }[] = [
+      { category: 'Núcleo', options: [
+          { value: 'OnStart', label: 'Al Iniciar' },
+          { value: 'OnUpdate', label: 'Al Actualizar (Cada Fotograma)' },
+      ]},
+      { category: 'Entrada', options: [{ value: 'OnClick', label: 'Al Hacer Clic' }] },
+      { category: 'Colisión', options: [{ value: 'OnCollisionWith', label: 'Al Colisionar Con', needsTarget: true }] },
+      { category: 'Variable', options: [{ value: 'CompareObjectVariable', label: 'Al Comparar Variable', needsParams: ['variable', 'operator', 'value'] }] },
     ];
-    
-    const actionOptions: { value: Action['action'], label: string, needsParams?: string[] }[] = [
-      { value: 'Destroy', label: 'Destruir' },
-      { value: 'CreateObject', label: 'Crear Objeto' },
-      { value: 'GoToScene', label: 'Ir a Escena', needsParams: ['sceneName'] },
-      { value: 'SetObjectPosition', label: 'Establecer Posición', needsParams: ['x', 'y'] },
-      { value: 'PlayAnimation', label: 'Reproducir Animación', needsParams: ['animationId'] },
-      { value: 'ModifyStat', label: 'Modificar Estadística', needsParams: ['stat', 'operation', 'value'] },
-      { value: 'AddToVariable', label: 'Añadir a Variable Global', needsParams: ['variable', 'value'] },
-      { value: 'SetVariable', label: 'Establecer Variable Global', needsParams: ['variable', 'value'] },
-      { value: 'AddToObjectVariable', label: 'Añadir a Variable Propia', needsParams: ['variable', 'value'] },
-      { value: 'SetObjectVariable', label: 'Establecer Variable Propia', needsParams: ['variable', 'value'] },
+    const triggerOptions: { value: ObjectTrigger, label: string, needsTarget?: boolean, needsParams?: string[] }[] = categorizedTriggerOptions.flatMap(c => c.options);
+
+    // FIX: Explicitly type categorizedActionOptions to avoid type widening of string literals.
+    const categorizedActionOptions: {
+        category: string;
+        options: {
+            value: Action['action'];
+            label: string;
+            needsParams?: string[];
+        }[];
+    }[] = [
+      { category: 'Objeto', options: [
+        { value: 'Destroy', label: 'Destruir' },
+        { value: 'CreateObject', label: 'Crear Objeto' },
+        { value: 'SetObjectPosition', label: 'Establecer Posición', needsParams: ['x', 'y'] },
+        { value: 'PlayAnimation', label: 'Reproducir Animación', needsParams: ['animationId'] },
+      ]},
+      { category: 'Escena', options: [{ value: 'GoToScene', label: 'Ir a Escena', needsParams: ['sceneName'] }] },
+      { category: 'Variables', options: [
+        { value: 'ModifyStat', label: 'Modificar Estadística', needsParams: ['stat', 'operation', 'value'] },
+        { value: 'AddToVariable', label: 'Añadir a Variable Global', needsParams: ['variable', 'value'] },
+        { value: 'SetVariable', label: 'Establecer Variable Global', needsParams: ['variable', 'value'] },
+        { value: 'AddToObjectVariable', label: 'Añadir a Variable Propia', needsParams: ['variable', 'value'] },
+        { value: 'SetObjectVariable', label: 'Establecer Variable Propia', needsParams: ['variable', 'value'] },
+      ]},
     ];
+    const actionOptions: { value: Action['action'], label: string, needsParams?: string[] }[] = categorizedActionOptions.flatMap(c => c.options);
 
     const addScript = () => {
         const newScript: ObjectScript = { id: `script_${Date.now()}`, trigger: 'OnClick', actions: [] };
@@ -281,7 +344,20 @@ const ObjectScriptsEditor: React.FC<{
     }
 
     return (
-        <div className="pt-4 border-t border-gray-800 space-y-2">
+        <div className="pt-4 border-t border-gray-800 space-y-2 relative">
+             {selectorState && <ItemSelectorModal 
+                title={selectorState.type === 'trigger' ? 'Seleccionar Disparador' : 'Seleccionar Acción'}
+                categorizedItems={selectorState.type === 'trigger' ? categorizedTriggerOptions : categorizedActionOptions}
+                onClose={() => setSelectorState(null)}
+                onSelect={(value) => {
+                    if (selectorState.type === 'trigger') {
+                        updateScript(selectorState.scriptId, { trigger: value as ObjectTrigger, params: {} });
+                    } else if (selectorState.type === 'action' && selectorState.actionIndex !== undefined) {
+                        updateAction(selectorState.scriptId, selectorState.actionIndex, { action: value as Action['action'] })
+                    }
+                    setSelectorState(null);
+                }}
+             />}
             <style>{`.input-field-sm { background-color: #374151; border: 1px solid #4b5563; border-radius: 0.25rem; padding: 0.125rem 0.25rem; font-size: 0.75rem; width: 100%; }`}</style>
             <div className="flex justify-between items-center">
                 <h3 className="font-semibold text-xs uppercase tracking-wider">Lógica (Scripts)</h3>
@@ -291,13 +367,12 @@ const ObjectScriptsEditor: React.FC<{
                 {(scripts || []).map(script => (
                     <div key={script.id} className="bg-gray-800/50 p-2 rounded-md border border-gray-700 space-y-2">
                         <div className="flex items-center gap-2">
-                            <select 
-                                value={script.trigger} 
-                                onChange={e => updateScript(script.id, { trigger: e.target.value as ObjectTrigger, params: {} })}
-                                className="bg-gray-700 flex-grow border border-gray-600 rounded-md px-2 py-1 text-sm"
+                            <button 
+                                onClick={() => setSelectorState({type: 'trigger', scriptId: script.id})}
+                                className="bg-gray-700 flex-grow border border-gray-600 rounded-md px-2 py-1 text-sm text-left hover:bg-gray-600"
                             >
-                                {triggerOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                            </select>
+                                {triggerOptions.find(opt => opt.value === script.trigger)?.label || 'Seleccionar Disparador'}
+                            </button>
                             <button onClick={() => removeScript(script.id)} className="p-1 hover:bg-red-500/50 rounded-full"><TrashIcon /></button>
                         </div>
                         {triggerOptions.find(o => o.value === script.trigger)?.needsTarget && (
@@ -321,9 +396,12 @@ const ObjectScriptsEditor: React.FC<{
                                             {objectNames.map(name => <option key={name} value={name}>{name}</option>)}
                                         </select>
                                         <span className="text-gray-400">-&gt;</span>
-                                        <select value={action.action} onChange={e => updateAction(script.id, i, { action: e.target.value as Action['action'] })} className="input-field-sm flex-1">
-                                            {actionOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                                        </select>
+                                         <button 
+                                            onClick={() => setSelectorState({type: 'action', scriptId: script.id, actionIndex: i})}
+                                            className="input-field-sm flex-1 text-left hover:bg-gray-600"
+                                        >
+                                            {actionOptions.find(opt => opt.value === action.action)?.label || 'Seleccionar Acción'}
+                                        </button>
                                         <button onClick={() => removeAction(script.id, i)} className="p-1 hover:text-red-400 text-lg leading-none">&times;</button>
                                     </div>
                                     {renderActionParams(script.id, i, action)}
@@ -777,6 +855,9 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
     handleUpdate({ imageUrl: asset.url, color: 'transparent', videoUrl: undefined });
     setIsAssetPickerOpen(false);
   };
+  
+  const PALETTE = ['#000000', '#1D2B53', '#7E2553', '#008751', '#AB5236', '#5F574F', '#C2C3C7', '#FFF1E8', '#FF004D', '#FFA300', '#FFEC27', '#00E436', '#29ADFF', '#83769C', '#FF77A8', '#FFCCAA'];
+
 
   return (
     <aside className="bg-gray-900 border-l border-gray-800 flex flex-col shrink-0 h-full md:h-auto md:w-auto" style={{ width: `${width}px` }}>
@@ -827,7 +908,6 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
 
                     <div className="pt-4 border-t border-gray-800 space-y-2">
                         <h3 className="font-semibold text-xs uppercase tracking-wider">Apariencia</h3>
-                        <input type="file" ref={appearanceFileInputRef} onChange={handleAppearanceFileSelect} className="hidden" accept="image/*,video/*" />
                         <div className="flex items-end gap-2">
                             <div className="flex-grow">
                                 <label className="text-xs text-gray-400 mb-1 block">Color Sólido</label>
@@ -838,9 +918,23 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                                     className="w-full h-8 bg-gray-800 border border-gray-700 rounded-md cursor-pointer" 
                                 />
                             </div>
-                            <button onClick={() => handleUpdate({ color: 'transparent' })} className="p-2 h-8 bg-gray-800 rounded-md" title="Sin color">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            </button>
+                        </div>
+                         <div className="grid grid-cols-8 gap-1 pt-2">
+                            {PALETTE.map(color => (
+                                <button
+                                    key={color}
+                                    onClick={() => handleUpdate({ color: color, imageUrl: undefined, videoUrl: undefined })}
+                                    className={`w-full h-6 rounded-sm border-2 transition-all ${selectedObject.color === color ? 'border-white scale-110' : 'border-transparent'} hover:border-white/50`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                            <button
+                                onClick={() => handleUpdate({ color: 'transparent', imageUrl: undefined, videoUrl: undefined })}
+                                className={`w-full h-6 col-span-2 rounded-sm border-2 transition-all ${selectedObject.color === 'transparent' ? 'border-white scale-110' : 'border-transparent'} hover:border-white/50 bg-cover`}
+                                style={{backgroundImage: 'linear-gradient(45deg, #4a5568 25%, transparent 25%), linear-gradient(-45deg, #4a5568 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #4a5568 75%), linear-gradient(-45deg, transparent 75%, #4a5568 75%)', backgroundSize: '10px 10px', backgroundPosition: '0 0, 0 5px, 5px -5px, -5px 0px'}}
+                                title="Transparent"
+                            />
                         </div>
                         <div className="text-center text-xs text-gray-500 my-1">O</div>
                         <div 

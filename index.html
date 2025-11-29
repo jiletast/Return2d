@@ -8,6 +8,8 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#111827"/>
     <title>Return 2D - Motor de Juegos</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -42,5 +44,21 @@
   <body class="bg-black text-white">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          // Construct the full path to the service worker to avoid cross-origin and invalid URL errors.
+          // This method is robust for various hosting environments.
+          const path = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+          const swUrl = window.location.origin + path + 'service-worker.js';
+
+          navigator.serviceWorker.register(swUrl).then(function(registration) {
+            console.log('Service Worker registration successful with scope: ', registration.scope);
+          }, function(err) {
+            console.log('Service Worker registration failed: ', err);
+          });
+        });
+      }
+    </script>
   </body>
 </html>

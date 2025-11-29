@@ -7,67 +7,16 @@ import { TrashIcon } from './icons/TrashIcon';
 interface StartScreenProps {
   projects: Project[];
   onLoadProject: (projectId: string) => void;
-  onCreateProject: (name: string) => void;
+  onCreateProject: () => void;
   onDeleteProject: (projectId: string) => void;
 }
 
-const NewProjectModal: React.FC<{onClose: () => void, onCreate: (name: string) => void}> = ({onClose, onCreate}) => {
-    const [name, setName] = useState('');
-    const inputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        inputRef.current?.focus();
-        
-        const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') onClose();
-        };
-        window.addEventListener('keydown', handleEsc);
-        return () => window.removeEventListener('keydown', handleEsc);
-    }, [onClose]);
-
-    const handleCreate = () => {
-        if (name.trim()) {
-            onCreate(name.trim());
-        }
-    };
-    
-    return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={onClose}>
-            <div className="bg-gray-900 rounded-lg shadow-2xl border border-gray-800 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-                <h2 className="text-xl font-bold mb-4">Crear Nuevo Proyecto</h2>
-                <input
-                    ref={inputRef}
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Mi Juego Increíble"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                />
-                <div className="flex justify-end gap-3 mt-6">
-                    <button onClick={onClose} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-md transition-colors">Cancelar</button>
-                    <button 
-                        onClick={handleCreate} 
-                        disabled={!name.trim()}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md transition-colors disabled:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Crear
-                    </button>
-                </div>
-            </div>
-        </div>
-    )
-}
-
 const StartScreen: React.FC<StartScreenProps> = ({ projects, onLoadProject, onCreateProject, onDeleteProject }) => {
-  const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [projectToConfirmDelete, setProjectToConfirmDelete] = useState<Project | null>(null);
   const sortedProjects = [...projects].sort((a, b) => b.lastModified - a.lastModified);
 
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-black text-white font-sans p-4">
-      {isCreatingProject && <NewProjectModal onClose={() => setIsCreatingProject(false)} onCreate={onCreateProject} />}
-      
       {projectToConfirmDelete && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setProjectToConfirmDelete(null)}>
           <div className="bg-gray-900 rounded-lg shadow-2xl border border-gray-800 w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
@@ -97,7 +46,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ projects, onLoadProject, onCr
           <div className="p-4 border-b border-gray-800 flex justify-between items-center">
           <h2 className="text-xl font-semibold">Tus Proyectos</h2>
           <button 
-              onClick={() => setIsCreatingProject(true)}
+              onClick={onCreateProject}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-4 py-2 rounded-md shadow-lg transition-transform transform hover:scale-105"
           >
               <PlusIcon />

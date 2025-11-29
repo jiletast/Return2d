@@ -1,0 +1,21 @@
+{
+  "short_name": "Return 2D",
+  "name": "Return 2D Game Engine",
+  "description": "A visual 2D game engine prototype that uses AI to generate game logic from natural language.",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/vite.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#111827",
+  "background_color": "#000000"
+}

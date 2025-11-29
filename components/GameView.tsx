@@ -1,5 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { Scene, GameObject, Animation, GameAsset, Behavior, Variable, Action, Condition, CollisionProperties, ProjectData } from '../types';
+
+export interface GameState {
+  gameObjects: GameObject[];
+  gameVariables: Record<string, any>;
+}
 
 interface GameViewProps {
   scene: Scene;
@@ -10,7 +15,8 @@ interface GameViewProps {
   gameWidth: number;
   gameHeight: number;
   joystick?: ProjectData['joystick'];
-  onExit: () => void;
+  initialState?: GameState;
+  onExit: (finalState: GameState) => void;
   onGoToScene: (sceneName: string) => void;
 }
 
@@ -64,11 +70,11 @@ const getCollisionBox = (objWithAbsPos: GameObject & {x: number, y: number}): {x
 };
 
 
-const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, assets, globalVariables, gameWidth, gameHeight, joystick, onExit, onGoToScene }) => {
+const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, assets, globalVariables, gameWidth, gameHeight, joystick, initialState, onExit, onGoToScene }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameObjectsRef = useRef<GameObject[]>([]);
   const keysPressed = useRef<Record<string, boolean>>({});
-  const actionsPressed = useRef<Record<string, boolean & { wasJoystickUp?: boolean }>>({});
+  const actionsPressed = useRef<Record<string, any>>({});
   const gameVariables = useRef<Record<string, string | number | boolean>>({});
   const activeAnimations = useRef<Map<number, ActiveAnimation>>(new Map());
   const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -89,8 +95,9 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
   const timersRef = useRef<Map<string, { startTime: number; duration: number }>>(new Map());
   const intervalsRef = useRef<Map<string, { interval: number; lastTriggerTime: number }>>(new Map());
 
-  const [joystickState, setJoystickState] = useState({ active: false, angle: 0, distance: 0 });
+  const joystickState = useRef({ active: false, angle: 0, distance: 0 });
   const joystickBaseRef = useRef<HTMLDivElement>(null);
+  const joystickHandleRef = useRef<HTMLDivElement>(null);
   const joystickTouchId = useRef<number | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const joystickUpPreviousFrame = useRef(false);
@@ -503,20 +510,20 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
   useEffect(() => {
     setRuntimeBackgroundColor(scene.backgroundColor);
     camera.current.zoom = scene.defaultZoom || 1;
-    gameObjectsRef.current = JSON.parse(JSON.stringify(scene.gameObjects.map(o => ({
-        ...o,
-        vx: 0, vy: 0, grounded: false,
-    }))));
     
-    const newVars: Record<string, string | number | boolean> = {};
-    globalVariables.forEach(v => { newVars[v.name] = v.value; });
-    
-    const preservedVars = { ...gameVariables.current };
-    Object.keys(newVars).forEach(key => {
-        if (preservedVars[key] === undefined) preservedVars[key] = newVars[key];
-    });
-    gameVariables.current = preservedVars;
-
+    if (initialState) {
+        gameObjectsRef.current = JSON.parse(JSON.stringify(initialState.gameObjects));
+        gameVariables.current = JSON.parse(JSON.stringify(initialState.gameVariables));
+    } else {
+        gameObjectsRef.current = JSON.parse(JSON.stringify(scene.gameObjects.map(o => ({
+            ...o,
+            vx: 0, vy: 0, grounded: false,
+        }))));
+        
+        const initialVars: Record<string, string | number | boolean> = {};
+        globalVariables.forEach(v => { initialVars[v.name] = v.value; });
+        gameVariables.current = initialVars;
+    }
     
     activeAnimations.current.clear();
     timersRef.current.clear();
@@ -542,20 +549,22 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
         }
     }
 
-    // Handle OnStart events separately on load
-    scene.events.forEach(event => {
-        const isAllOnStart = event.conditions.every(c => c.trigger === 'OnStart');
-        if (isAllOnStart) {
-            event.actions.forEach(action => executeAction(action, undefined));
-        }
-    });
-    gameObjectsRef.current.forEach(obj => {
-        obj.scripts?.forEach(script => {
-            if (script.trigger === 'OnStart') {
-                script.actions.forEach(action => executeAction(action, obj));
+    // Handle OnStart events separately on load, only if it's not a resumed state
+    if (!initialState) {
+        scene.events.forEach(event => {
+            const isAllOnStart = event.conditions.every(c => c.trigger === 'OnStart');
+            if (isAllOnStart) {
+                event.actions.forEach(action => executeAction(action, undefined));
             }
         });
-    });
+        gameObjectsRef.current.forEach(obj => {
+            obj.scripts?.forEach(script => {
+                if (script.trigger === 'OnStart') {
+                    script.actions.forEach(action => executeAction(action, obj));
+                }
+            });
+        });
+    }
 
     const handleKeyDown = (e: KeyboardEvent) => { keysPressed.current[e.code.toLowerCase()] = true; };
     const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.code.toLowerCase()] = false; };
@@ -637,29 +646,36 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
       frameJoystickEvents.current = [];
       const actions = actionsPressed.current;
       
-      // Reset non-UI actions
+      // Reset non-UI actions and intensity
       ['moveLeft','moveRight','moveUp','moveDown','jump','attack'].forEach(act => {
         if (!actions[act+'_ui']) actions[act] = false;
       });
+      actions.moveHorizontalIntensity = 0;
 
-      const joystickUpNow = joystickState.active && joystickState.angle > -135 && joystickState.angle < -45;
+      const joystickUpNow = joystickState.current.active && joystickState.current.angle > -135 && joystickState.current.angle < -45;
       
       if (joystickUpNow && !joystickUpPreviousFrame.current) {
           actions.jump = true;
       }
       joystickUpPreviousFrame.current = joystickUpNow;
 
-      if (joystickState.active) {
-          const angle = joystickState.angle;
+      if (joystickState.current.active) {
+          const joystickSize = joystick?.size ?? 120;
+          const maxDistance = joystickSize / 2;
+          const intensity = joystickState.current.distance / maxDistance;
+          const angle = joystickState.current.angle;
           const angleRad = angle * (Math.PI / 180);
           const horizontalProjection = Math.cos(angleRad);
           
-          if (horizontalProjection > 0.15) { // Threshold to avoid moving when joystick is almost vertical
-             actions.moveRight = true;
-             if (!frameJoystickEvents.current.includes('right')) frameJoystickEvents.current.push('right');
-          } else if (horizontalProjection < -0.15) {
-             actions.moveLeft = true;
-             if (!frameJoystickEvents.current.includes('left')) frameJoystickEvents.current.push('left');
+          if (Math.abs(horizontalProjection) > 0.15) { // Threshold
+             actions.moveHorizontalIntensity = horizontalProjection * intensity;
+             if (horizontalProjection > 0) {
+                 actions.moveRight = true;
+                 if (!frameJoystickEvents.current.includes('right')) frameJoystickEvents.current.push('right');
+             } else {
+                 actions.moveLeft = true;
+                 if (!frameJoystickEvents.current.includes('left')) frameJoystickEvents.current.push('left');
+             }
           }
 
           // Keep vertical logic for events
@@ -674,6 +690,16 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
           }
       }
       
+      // Keyboard input overrides joystick for horizontal movement intensity
+      let keyboardHorizontal = 0;
+      if (keysPressed.current['arrowleft'] || keysPressed.current['keya']) keyboardHorizontal -= 1;
+      if (keysPressed.current['arrowright'] || keysPressed.current['keyd']) keyboardHorizontal += 1;
+      
+      if (keyboardHorizontal !== 0) {
+          actions.moveHorizontalIntensity = keyboardHorizontal;
+      }
+
+      // Set digital actions for events from keyboard
       if (keysPressed.current['arrowleft'] || keysPressed.current['keya']) actions.moveLeft = true;
       if (keysPressed.current['arrowright'] || keysPressed.current['keyd']) actions.moveRight = true;
       if (keysPressed.current['arrowup'] || keysPressed.current['keyw']) actions.moveUp = true;
@@ -681,6 +707,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
       if (keysPressed.current['space']) actions.jump = true;
       if (keysPressed.current['keyx'] || actions.attack) actions.attack = true;
       
+      // Handle single-press actions like jump and attack
       if (actions.jump) {
         if (!actions.jumpPressed) {
             actions.jumpAction = true;
@@ -731,9 +758,12 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
           const platformer = obj.behaviors?.find(b => b.name === 'PlatformerCharacter');
           if (platformer && !hasRPGMovement) {
               const { speed, jumpForce } = platformer.properties;
-              obj.vx = 0;
-              if (actions.moveLeft) { obj.vx = -speed; obj.direction = 'left'; }
-              if (actions.moveRight) { obj.vx = speed; obj.direction = 'right'; }
+
+              obj.vx = (actions.moveHorizontalIntensity || 0) * speed;
+              
+              if (obj.vx > 0) obj.direction = 'right';
+              if (obj.vx < 0) obj.direction = 'left';
+
               if (actions.jumpAction && obj.grounded) {
                   obj.vy = -jumpForce;
               }
@@ -748,14 +778,14 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
               obj.vx = 0;
               obj.vy = 0;
               
-              if (joystickState.active) {
+              if (joystickState.current.active) {
                   const joystickSize = joystick?.size ?? 120;
                   const maxDistance = joystickSize / 2;
-                  const intensity = joystickState.distance / maxDistance;
-                  const angleRad = joystickState.angle * Math.PI / 180;
+                  const intensity = joystickState.current.distance / maxDistance;
+                  const angleRad = joystickState.current.angle * Math.PI / 180;
                   obj.vx = speed * intensity * Math.cos(angleRad);
                   obj.vy = speed * intensity * Math.sin(angleRad);
-                  if (Math.abs(joystickState.angle) > 90) {
+                  if (Math.abs(joystickState.current.angle) > 90) {
                       obj.direction = 'left';
                   } else {
                       obj.direction = 'right';
@@ -781,7 +811,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
             const objWithAbsPosH = {...obj, ...currentAbsPos};
             for (const solidShape of staticCollisionShapes) {
                 if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox(objWithAbsPosH), solidShape)) {
-                     if ((obj.vx || 0) > 0) obj.x = solidShape.x - getCollisionBox(obj).width - (currentAbsPos.x - obj.x);
+                     if ((obj.vx || 0) > 0) obj.x = solidShape.x - getCollisionBox(objWithAbsPosH).width - (currentAbsPos.x - obj.x);
                      else if ((obj.vx || 0) < 0) obj.x = solidShape.x + solidShape.width - (currentAbsPos.x - obj.x);
                      obj.vx = 0;
                      break;
@@ -793,7 +823,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
             const objWithAbsPosV = {...obj, ...currentAbsPos};
             for (const solidShape of staticCollisionShapes) {
                 if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox(objWithAbsPosV), solidShape)) {
-                     if ((obj.vy || 0) > 0) obj.y = solidShape.y - getCollisionBox(obj).height - (currentAbsPos.y - obj.y);
+                     if ((obj.vy || 0) > 0) obj.y = solidShape.y - getCollisionBox(objWithAbsPosV).height - (currentAbsPos.y - obj.y);
                      else if ((obj.vy || 0) < 0) obj.y = solidShape.y + solidShape.height - (currentAbsPos.y - obj.y);
                      obj.vy = 0;
                      break;
@@ -808,7 +838,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                   if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox(objWithAbsPos), solidShape)) {
                       frameCollisions.current.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnHorizontalCollision' });
                       if ((obj.vx || 0) > 0) {
-                          obj.x = solidShape.x - getCollisionBox(obj).width - (currentAbsPos.x - obj.x);
+                          obj.x = solidShape.x - getCollisionBox(objWithAbsPos).width - (currentAbsPos.x - obj.x);
                       } else if ((obj.vx || 0) < 0) {
                           obj.x = solidShape.x + solidShape.width - (currentAbsPos.x - obj.x);
                       }
@@ -828,7 +858,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                   if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox(newObjWithAbsPos), solidShape)) {
                       frameCollisions.current.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnVerticalCollision' });
                       if (obj.vy! > 0) {
-                          obj.y = solidShape.y - getCollisionBox(obj).height - (currentAbsPos.y - obj.y);
+                          obj.y = solidShape.y - getCollisionBox(newObjWithAbsPos).height - (currentAbsPos.y - obj.y);
                           obj.grounded = true;
                           obj.vy = 0;
                       } else if (obj.vy! < 0) {
@@ -1076,7 +1106,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
           backgroundMusicPlayer.current = null;
       }
     };
-  }, [scene, onGoToScene, globalVariables, assets, animations]);
+  }, [scene, onGoToScene, globalVariables, assets, animations, initialState]);
 
   const isColliding = (box1: {x:number, y:number, width:number, height:number}, box2: {x:number, y:number, width:number, height:number}) => {
     return box1.x < box2.x + box2.width &&
@@ -1147,7 +1177,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
   const joystickSize = joystick?.size ?? 120;
   const joystickHandleSize = joystickSize / 2.4;
 
-  const updateJoystickState = (touch: React.Touch | Touch) => {
+  const updateJoystickState = useCallback((touch: React.Touch | Touch) => {
     const base = joystickBaseRef.current;
     if (!base) return;
     const rect = base.getBoundingClientRect();
@@ -1157,8 +1187,14 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
     const dy = touch.clientY - centerY;
     const angle = Math.atan2(dy, dx) * (180 / Math.PI);
     const distance = Math.min(joystickSize / 2, Math.hypot(dx, dy));
-    setJoystickState({ active: true, angle, distance });
-  };
+    joystickState.current = { active: true, angle, distance };
+
+    if (joystickHandleRef.current) {
+        const x = distance * Math.cos(angle * Math.PI / 180);
+        const y = distance * Math.sin(angle * Math.PI / 180);
+        joystickHandleRef.current.style.transform = `translate(${x}px, ${y}px)`;
+    }
+  }, [joystickSize]);
   
   const handleJoystickTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -1189,7 +1225,10 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                 const touch = e.changedTouches[i];
                 if (touch.identifier === joystickTouchId.current) {
                     e.preventDefault();
-                    setJoystickState({ active: false, angle: 0, distance: 0 });
+                    joystickState.current = { active: false, angle: 0, distance: 0 };
+                    if (joystickHandleRef.current) {
+                        joystickHandleRef.current.style.transform = 'translate(0, 0)';
+                    }
                     joystickTouchId.current = null;
                     return;
                 }
@@ -1202,13 +1241,13 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
         window.removeEventListener('touchmove', handleJoystickTouchMove);
         window.removeEventListener('touchend', handleJoystickTouchEnd);
     };
-  }, []);
+  }, [updateJoystickState]);
 
   return (
     <div className="absolute inset-0 bg-black z-50 flex flex-col">
       <header className="flex items-center justify-between p-2 bg-gray-900 text-white shrink-0">
         <span className="font-bold">Vista Previa del Juego</span>
-        <button onClick={onExit} className="px-4 py-1 bg-red-600 hover:bg-red-700 rounded-md">Salir</button>
+        <button onClick={() => onExit({ gameObjects: gameObjectsRef.current, gameVariables: gameVariables.current })} className="px-4 py-1 bg-red-600 hover:bg-red-700 rounded-md">Salir</button>
       </header>
       <main className="flex-grow relative w-full h-full overflow-hidden flex justify-center items-center bg-black">
         <canvas
@@ -1304,19 +1343,18 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                       userSelect: 'none'
                   }}
               >
-                  <div style={{
-                      position: 'absolute',
-                      width: `${joystickHandleSize}px`,
-                      height: `${joystickHandleSize}px`,
-                      backgroundColor: 'rgba(255, 255, 255, 0.3)',
-                      borderRadius: '50%',
-                      transform: joystickState.active 
-                          ? `translate(${joystickState.distance * Math.cos(joystickState.angle * Math.PI / 180)}px, ${joystickState.distance * Math.sin(joystickState.angle * Math.PI / 180)}px)`
-                          : 'translate(0, 0)',
-                      left: `calc(50% - ${joystickHandleSize / 2}px)`,
-                      top: `calc(50% - ${joystickHandleSize / 2}px)`,
-                      transition: 'transform 50ms linear'
-                  }}/>
+                  <div 
+                      ref={joystickHandleRef}
+                      style={{
+                          position: 'absolute',
+                          width: `${joystickHandleSize}px`,
+                          height: `${joystickHandleSize}px`,
+                          backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                          borderRadius: '50%',
+                          left: `calc(50% - ${joystickHandleSize / 2}px)`,
+                          top: `calc(50% - ${joystickHandleSize / 2}px)`,
+                          transition: 'transform 50ms linear'
+                      }}/>
               </div>
             )}
              {dialogue && (

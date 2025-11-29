@@ -261,12 +261,41 @@ const AssetBrowserContent: React.FC<{
   );
 };
 
+const getAbsolutePosition = (objectId: number, allObjects: GameObject[]): { x: number; y: number } => {
+    const objectsById = new Map(allObjects.map(o => [o.id, o]));
+    let currentId: number | null | undefined = objectId;
+    let totalX = 0;
+    let totalY = 0;
+    let safety = 100; // prevent infinite loops in case of bad data
+    while(currentId && safety-- > 0) {
+        const obj = objectsById.get(currentId);
+        if (!obj) break;
+        totalX += obj.x;
+        totalY += obj.y;
+        currentId = obj.parentId;
+    }
+    return { x: totalX, y: totalY };
+};
 
 const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ scenes, activeSceneId, onSelectScene, onAddScene, onCloneScene, objects, selectedId, onSelect, onUpdateObject, assets, onAddAsset, onUpdateAsset, onOpenAnimationEditor, onOpenSpriteEditor, onOpenAudioLab, onOpenSoundtrackEditor, width, onToggleCollapse }) => {
   const [activeTab, setActiveTab] = useState<'objects' | 'assets'>('objects');
 
-  const handleSetParent = (childId: number, parentId: number | null) => {
-    onUpdateObject(childId, { parentId });
+  const handleSetParent = (childId: number, newParentId: number | null) => {
+    const childObject = objects.find(o => o.id === childId);
+    if (!childObject) return;
+
+    // 1. Get child's current absolute position
+    const childAbsPos = getAbsolutePosition(childId, objects);
+
+    // 2. Get new parent's absolute position. If un-parenting, it's the scene origin (0,0).
+    const newParentAbsPos = newParentId ? getAbsolutePosition(newParentId, objects) : { x: 0, y: 0 };
+    
+    // 3. Calculate the new local position for the child
+    const newLocalX = childAbsPos.x - newParentAbsPos.x;
+    const newLocalY = childAbsPos.y - newParentAbsPos.y;
+
+    // 4. Update the object with its new parent and adjusted local coordinates
+    onUpdateObject(childId, { parentId: newParentId, x: newLocalX, y: newLocalY });
   };
 
   if (width < 50 && width > 0) {

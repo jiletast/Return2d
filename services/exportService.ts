@@ -448,7 +448,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                 }
                 const tilemapBehavior = obj.behaviors?.find(b => b.name === 'Tilemap');
                 if (tilemapBehavior) {
-                    const { tileSize = 32, collisionData = '' } = tilemapBehavior.properties;
+                    const { tileSize = 32, collisionData = '' } = tilemapBehavior.properties || {};
                     const rows = String(collisionData).split('\\n');
                     rows.forEach((row, y) => {
                         for (let x = 0; x < row.length; x++) {
@@ -718,7 +718,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             if (tilemapBehavior && obj.imageUrl) {
                 const img = imageCache.get(obj.imageUrl);
                 if (img && img.complete) {
-                    const { tileSize = 32, collisionData = '' } = tilemapBehavior.properties;
+                    const { tileSize = 32, collisionData = '' } = tilemapBehavior.properties || {};
                     const rows = String(collisionData).split('\\n');
                     rows.forEach((row, y) => {
                         for (let x = 0; x < row.length; x++) {
@@ -885,12 +885,13 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             uiContainer.innerHTML = '';
             
             const uiControls = gameObjects.filter(o => o.isUI && o.controlAction && o.controlAction !== 'none');
+            
+            const scaleX = uiContainer.clientWidth / (window.projectData.gameWidth || 1024);
+            const scaleY = uiContainer.clientHeight / (window.projectData.gameHeight || 768);
 
             uiControls.forEach(obj => {
                 const button = document.createElement('button');
-                const scaleX = canvas.width / (window.projectData.gameWidth || 1024);
-                const scaleY = canvas.height / (window.projectData.gameHeight || 768);
-
+                
                 button.style.position = 'absolute';
                 button.style.left = (obj.x * scaleX) + 'px';
                 button.style.top = (obj.y * scaleY) + 'px';
@@ -1006,21 +1007,30 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
 
         window.addEventListener('resize', () => {
              const gameContainer = document.getElementById('game-container');
+             const uiContainer = document.getElementById('ui-container');
              const w = gameContainer.clientWidth;
              const h = gameContainer.clientHeight;
              const ratio = (window.projectData.gameWidth || 1024) / (window.projectData.gameHeight || 768);
+             
+             let newCanvasWidth, newCanvasHeight;
              if (w / h > ratio) {
-                canvas.style.height = h + 'px';
-                canvas.style.width = (h * ratio) + 'px';
+                newCanvasHeight = h;
+                newCanvasWidth = h * ratio;
              } else {
-                canvas.style.width = w + 'px';
-                canvas.style.height = (w / ratio) + 'px';
+                newCanvasWidth = w;
+                newCanvasHeight = w / ratio;
              }
+             canvas.style.height = newCanvasHeight + 'px';
+             canvas.style.width = newCanvasWidth + 'px';
+             uiContainer.style.height = newCanvasHeight + 'px';
+             uiContainer.style.width = newCanvasWidth + 'px';
              setupUI();
         });
-
-        startGame(window.projectData);
-        window.dispatchEvent(new Event('resize'));
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            startGame(window.projectData);
+            window.dispatchEvent(new Event('resize'));
+        });
     `;
 
     return `<!DOCTYPE html>
@@ -1044,19 +1054,6 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
     </div>
     <script>
         window.projectData = ${JSON.stringify(projectData)};
-        // This is a bit of a hack to make the UI container match the scaled canvas size
-        const canvasEl = document.getElementById('gameCanvas');
-        const uiContainerEl = document.getElementById('ui-container');
-        const resizeObserver = new ResizeObserver(entries => {
-            for (let entry of entries) {
-                const { width, height } = entry.contentRect;
-                uiContainerEl.style.width = width + 'px';
-                uiContainerEl.style.height = height + 'px';
-            }
-        });
-        resizeObserver.observe(canvasEl);
-    </script>
-    <script>
         ${gameEngineScript}
     </script>
 </body>

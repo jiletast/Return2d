@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import type { GameObject, GameAsset, Scene } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { DesktopIcon } from './icons/DesktopIcon';
+import { CameraIcon } from './icons/CameraIcon';
 
 interface SceneEditorProps {
   scene: Scene | undefined;
@@ -336,7 +337,14 @@ const SceneEditor: React.FC<SceneEditorProps> = ({ scene, objects, selectedId, o
       const parent = object.parentId ? localObjectsWithAbsPos.find(o => o.id === object.parentId) : null;
       const parentAbsPos = parent ? parent.absPos : { x: 0, y: 0 };
       
-      onUpdateObject(id, { x: dropX - (object.width / 2) - parentAbsPos.x, y: dropY - (object.height / 2) - parentAbsPos.y });
+      // Calculate new position centering the object on cursor
+      const newX = dropX - (object.width / 2) - parentAbsPos.x;
+      const newY = dropY - (object.height / 2) - parentAbsPos.y;
+
+      onUpdateObject(id, { x: newX, y: newY });
+      // Immediately update local state to prevent jump
+      setLocalObjects(prev => prev.map(o => o.id === id ? { ...o, x: newX, y: newY } : o));
+
     } else if (assetString) {
       try {
         const asset: GameAsset = JSON.parse(assetString);
@@ -398,8 +406,8 @@ const SceneEditor: React.FC<SceneEditorProps> = ({ scene, objects, selectedId, o
   
   const handleObjectDragOver = (e: React.DragEvent, objId: number) => {
     e.preventDefault();
-    e.stopPropagation();
      if (e.dataTransfer.types.includes('application/game-asset')) {
+        e.stopPropagation();
         e.dataTransfer.dropEffect = 'copy';
         setDragOverObjectId(objId);
     }
@@ -407,20 +415,23 @@ const SceneEditor: React.FC<SceneEditorProps> = ({ scene, objects, selectedId, o
 
   const handleObjectDrop = (e: React.DragEvent, objId: number) => {
       e.preventDefault();
-      e.stopPropagation();
-      setDragOverObjectId(null);
-      const assetString = e.dataTransfer.getData('application/game-asset');
-      if (!assetString) return;
+      
+      if (e.dataTransfer.types.includes('application/game-asset')) {
+        e.stopPropagation();
+        setDragOverObjectId(null);
+        const assetString = e.dataTransfer.getData('application/game-asset');
+        if (!assetString) return;
 
-      try {
-        const asset: GameAsset = JSON.parse(assetString);
-        if (asset.type === 'image') {
-          onUpdateObject(objId, { imageUrl: asset.url, color: 'transparent', videoUrl: undefined });
-        } else if (asset.type === 'video') {
-          onUpdateObject(objId, { videoUrl: asset.url, color: 'transparent', imageUrl: undefined, videoLoop: true, videoAutoplay: true });
+        try {
+            const asset: GameAsset = JSON.parse(assetString);
+            if (asset.type === 'image') {
+            onUpdateObject(objId, { imageUrl: asset.url, color: 'transparent', videoUrl: undefined });
+            } else if (asset.type === 'video') {
+            onUpdateObject(objId, { videoUrl: asset.url, color: 'transparent', imageUrl: undefined, videoLoop: true, videoAutoplay: true });
+            }
+        } catch (error) {
+            console.error("Failed to parse dropped asset data onto object:", error);
         }
-      } catch (error) {
-        console.error("Failed to parse dropped asset data onto object:", error);
       }
   };
 

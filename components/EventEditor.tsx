@@ -17,72 +17,158 @@ interface EventEditorProps {
   allScenes: Scene[];
 }
 
-const triggerOptions = [
-    { value: 'OnStart', label: 'Al Iniciar la Escena' },
-    { value: 'OnCollisionWith', label: 'Al Colisionar Con (Cualquier Lado)', needsTarget: true },
-    { value: 'OnVerticalCollision', label: 'En Colisión Vertical', needsTarget: true },
-    { value: 'OnHorizontalCollision', label: 'En Colisión Horizontal', needsTarget: true },
-    { value: 'OnKeyPress', label: 'Al Pulsar Tecla', needsParams: ['key'] },
-    { value: 'CompareVariable', label: 'Comparar Variable Global', needsParams: ['variable', 'operator', 'value']},
-    { value: 'CompareObjectVariable', label: 'Comparar Variable de Objeto', needsParams: ['variable', 'operator', 'value']},
-    { value: 'CompareStat', label: 'Comparar Estadística (RPG)', needsParams: ['stat', 'operator', 'value']},
-    { value: 'OnObjectClicked', label: 'Al Hacer Clic en Objeto' },
-    { value: 'OnJoystickMove', label: 'Al Mover Joystick (Cualquier dir.)' },
-    { value: 'OnJoystickUp', label: 'Al Mover Joystick Hacia Arriba' },
-    { value: 'OnJoystickDown', label: 'Al Mover Joystick Hacia Abajo' },
-    { value: 'OnJoystickLeft', label: 'Al Mover Joystick a la Izquierda' },
-    { value: 'OnJoystickRight', label: 'Al Mover Joystick a la Derecha' },
-    { value: 'IsIdle', label: 'Al Estar Quieto' },
-    { value: 'IsRunning', label: 'Al Correr' },
-    { value: 'IsJumping', label: 'Al Saltar' },
-    { value: 'OnAttack', label: 'Al Atacar' },
-    { value: 'IsOnGround', label: 'Al Estar en el Suelo' },
-    { value: 'IsMoving', label: 'Al Moverse' },
-    { value: 'IsMusicPlaying', label: 'Si la Música de Fondo está Sonando' },
-    { value: 'OnTimerElapsed', label: 'Al Finalizar Temporizador', needsParams: ['timerName'] },
-    { value: 'EveryXSeconds', label: 'Cada X Segundos', needsParams: ['interval'] },
-    { value: 'OnMatchFound', label: 'Al Encontrar Partida Online' },
-    { value: 'OnPlayerJoined', label: 'Cuando un Jugador se Une' },
-    { value: 'OnPlayerLeft', label: 'Cuando un Jugador se Va' },
-    { value: 'OnReceiveNetworkMessage', label: 'Al Recibir Mensaje de Red', needsParams: ['message'] },
+// FIX: Explicitly type categorizedTriggerOptions to avoid type widening of string literals and ensure optional properties are recognized.
+const categorizedTriggerOptions: {
+    category: string;
+    options: {
+        value: Condition['trigger'];
+        label: string;
+        needsParams?: string[];
+        needsTarget?: boolean;
+    }[];
+}[] = [
+    { category: 'Núcleo', options: [{ value: 'OnStart', label: 'Al Iniciar la Escena' }] },
+    { category: 'Entrada', options: [
+        { value: 'OnKeyPress', label: 'Al Pulsar Tecla', needsParams: ['key'] },
+        { value: 'OnObjectClicked', label: 'Al Hacer Clic en Objeto' },
+        { value: 'OnJoystickMove', label: 'Al Mover Joystick (Cualquier dir.)' },
+        { value: 'OnJoystickUp', label: 'Al Mover Joystick Hacia Arriba' },
+        { value: 'OnJoystickDown', label: 'Al Mover Joystick Hacia Abajo' },
+        { value: 'OnJoystickLeft', label: 'Al Mover Joystick a la Izquierda' },
+        { value: 'OnJoystickRight', label: 'Al Mover Joystick a la Derecha' },
+    ]},
+    { category: 'Colisión', options: [
+        { value: 'OnCollisionWith', label: 'Al Colisionar Con (Cualquier Lado)', needsTarget: true },
+        { value: 'OnVerticalCollision', label: 'En Colisión Vertical', needsTarget: true },
+        { value: 'OnHorizontalCollision', label: 'En Colisión Horizontal', needsTarget: true },
+    ]},
+    { category: 'Estado Objeto', options: [
+        { value: 'IsIdle', label: 'Al Estar Quieto' },
+        { value: 'IsRunning', label: 'Al Correr' },
+        { value: 'IsJumping', label: 'Al Saltar' },
+        { value: 'IsOnGround', label: 'Al Estar en el Suelo' },
+        { value: 'IsMoving', label: 'Al Moverse' },
+        { value: 'OnAttack', label: 'Al Atacar' },
+    ]},
+    { category: 'Variables y Datos', options: [
+        { value: 'CompareVariable', label: 'Comparar Variable Global', needsParams: ['variable', 'operator', 'value']},
+        { value: 'CompareObjectVariable', label: 'Comparar Variable de Objeto', needsParams: ['variable', 'operator', 'value']},
+        { value: 'CompareStat', label: 'Comparar Estadística (RPG)', needsParams: ['stat', 'operator', 'value']},
+    ]},
+    { category: 'Tiempo', options: [
+        { value: 'OnTimerElapsed', label: 'Al Finalizar Temporizador', needsParams: ['timerName'] },
+        { value: 'EveryXSeconds', label: 'Cada X Segundos', needsParams: ['interval'] },
+    ]},
+    { category: 'Audio', options: [{ value: 'IsMusicPlaying', label: 'Si la Música de Fondo está Sonando' }] },
+    { category: 'Red', options: [
+        { value: 'OnMatchFound', label: 'Al Encontrar Partida Online' },
+        { value: 'OnPlayerJoined', label: 'Cuando un Jugador se Une' },
+        { value: 'OnPlayerLeft', label: 'Cuando un Jugador se Va' },
+        { value: 'OnReceiveNetworkMessage', label: 'Al Recibir Mensaje de Red', needsParams: ['message'] },
+    ] },
 ];
+const triggerOptions = categorizedTriggerOptions.flatMap(c => c.options);
 
-const actionOptions = [
-    { value: 'Destroy', label: 'Destruir Objeto' },
-    { value: 'CreateObject', label: 'Crear Objeto' },
-    { value: 'AddToVariable', label: 'Añadir a Variable Global', needsParams: ['variable', 'value'] },
-    { value: 'SetVariable', label: 'Establecer Variable Global', needsParams: ['variable', 'value'] },
-    { value: 'AddToObjectVariable', label: 'Añadir a Variable de Objeto', needsParams: ['variable', 'value'] },
-    { value: 'SetObjectVariable', label: 'Establecer Variable de Objeto', needsParams: ['variable', 'value'] },
-    { value: 'PlayAnimation', label: 'Reproducir Animación', needsParams: ['animationId'] },
-    { value: 'GoToScene', label: 'Ir a Escena', needsParams: ['sceneName'] },
-    { value: 'SetUIText', label: 'Establecer Texto UI', needsParams: ['text'] },
-    { value: 'SetObjectPosition', label: 'Establecer Posición', needsParams: ['x', 'y']},
-    { value: 'MoveObject', label: 'Mover Objeto (Continuo)', needsParams: ['direction', 'speed'] },
-    { value: 'ForceJump', label: 'Forzar Salto', needsParams: ['jumpForce'] },
-    { value: 'TriggerAttack', label: 'Activar Ataque' },
-    { value: 'SetParent', label: 'Unir Objeto a (Establecer Padre)', needsParams: ['parentName'] },
-    { value: 'PlaySound', label: 'Reproducir Sonido (Efecto)', needsParams: ['soundId']},
-    { value: 'SetBackgroundMusic', label: 'Establecer Música de Fondo', needsParams: ['soundId']},
-    { value: 'StopBackgroundMusic', label: 'Detener Música de Fondo' },
-    { value: 'SetBackgroundMusicVolume', label: 'Ajustar Volumen Música Fondo', needsParams: ['volume']},
-    { value: 'SetBackgroundColor', label: 'Establecer Color de Fondo', needsParams: ['color']},
-    { value: 'PlayVideo', label: 'Reproducir Vídeo' },
-    { value: 'PauseVideo', label: 'Pausar Vídeo' },
-    { value: 'StopVideo', label: 'Detener Vídeo' },
-    { value: 'SetCameraZoom', label: 'Establecer Zoom de Cámara', needsParams: ['zoomLevel']},
-    { value: 'SaveGame', label: 'Guardar Partida', needsParams: ['slot'] },
-    { value: 'LoadGame', label: 'Cargar Partida', needsParams: ['slot'] },
-    { value: 'StartTimer', label: 'Iniciar Temporizador', needsParams: ['timerName', 'duration'] },
-    { value: 'StopTimer', label: 'Detener Temporizador', needsParams: ['timerName'] },
-    { value: 'ModifyStat', label: 'Modificar Estadística (RPG)', needsParams: ['stat', 'operation', 'value'] },
-    { value: 'ShowDialogue', label: 'Mostrar Diálogo (RPG)', needsParams: ['dialogueText'] },
-    { value: 'SetQuestState', label: 'Establecer Estado de Misión (RPG)', needsParams: ['questId', 'questState'] },
-    { value: 'CreateMatch', label: 'Crear Partida Online', needsParams: ['maxPlayers'] },
-    { value: 'JoinMatch', label: 'Unirse a Partida Online', needsParams: ['matchId'] },
-    { value: 'SendNetworkMessage', label: 'Enviar Mensaje de Red', needsParams: ['message'] },
-    { value: 'SetPlayerName', label: 'Establecer Nombre de Jugador', needsParams: ['name'] },
+// FIX: Explicitly type categorizedActionOptions to avoid type widening of string literals.
+const categorizedActionOptions: {
+    category: string;
+    options: {
+        value: Action['action'];
+        label: string;
+        needsParams?: string[];
+    }[];
+}[] = [
+    { category: 'Objeto', options: [
+        { value: 'Destroy', label: 'Destruir Objeto' },
+        { value: 'CreateObject', label: 'Crear Objeto' },
+        { value: 'SetObjectPosition', label: 'Establecer Posición', needsParams: ['x', 'y']},
+        { value: 'MoveObject', label: 'Mover Objeto (Continuo)', needsParams: ['direction', 'speed'] },
+        { value: 'ForceJump', label: 'Forzar Salto', needsParams: ['jumpForce'] },
+        { value: 'TriggerAttack', label: 'Activar Ataque' },
+        { value: 'SetParent', label: 'Unir Objeto a (Establecer Padre)', needsParams: ['parentName'] },
+    ]},
+    { category: 'Visuales', options: [
+        { value: 'PlayAnimation', label: 'Reproducir Animación', needsParams: ['animationId'] },
+        { value: 'PlayVideo', label: 'Reproducir Vídeo' },
+        { value: 'PauseVideo', label: 'Pausar Vídeo' },
+        { value: 'StopVideo', label: 'Detener Vídeo' },
+    ]},
+    { category: 'Variables y Datos', options: [
+        { value: 'AddToVariable', label: 'Añadir a Variable Global', needsParams: ['variable', 'value'] },
+        { value: 'SetVariable', label: 'Establecer Variable Global', needsParams: ['variable', 'value'] },
+        { value: 'AddToObjectVariable', label: 'Añadir a Variable de Objeto', needsParams: ['variable', 'value'] },
+        { value: 'SetObjectVariable', label: 'Establecer Variable de Objeto', needsParams: ['variable', 'value'] },
+        { value: 'ModifyStat', label: 'Modificar Estadística (RPG)', needsParams: ['stat', 'operation', 'value'] },
+        { value: 'SaveGame', label: 'Guardar Partida', needsParams: ['slot'] },
+        { value: 'LoadGame', label: 'Cargar Partida', needsParams: ['slot'] },
+    ]},
+    { category: 'Escena y Cámara', options: [
+        { value: 'GoToScene', label: 'Ir a Escena', needsParams: ['sceneName'] },
+        { value: 'SetBackgroundColor', label: 'Establecer Color de Fondo', needsParams: ['color']},
+        { value: 'SetCameraZoom', label: 'Establecer Zoom de Cámara', needsParams: ['zoomLevel']},
+    ]},
+    { category: 'UI y Texto', options: [
+        { value: 'SetUIText', label: 'Establecer Texto UI', needsParams: ['text'] },
+        { value: 'ShowDialogue', label: 'Mostrar Diálogo (RPG)', needsParams: ['dialogueText'] },
+    ]},
+    { category: 'Audio', options: [
+        { value: 'PlaySound', label: 'Reproducir Sonido (Efecto)', needsParams: ['soundId']},
+        { value: 'SetBackgroundMusic', label: 'Establecer Música de Fondo', needsParams: ['soundId']},
+        { value: 'StopBackgroundMusic', label: 'Detener Música de Fondo' },
+        { value: 'SetBackgroundMusicVolume', label: 'Ajustar Volumen Música Fondo', needsParams: ['volume']},
+    ]},
+    { category: 'Tiempo', options: [
+        { value: 'StartTimer', label: 'Iniciar Temporizador', needsParams: ['timerName', 'duration'] },
+        { value: 'StopTimer', label: 'Detener Temporizador', needsParams: ['timerName'] },
+    ]},
+    { category: 'RPG/Avanzado', options: [
+        { value: 'SetQuestState', label: 'Establecer Estado de Misión (RPG)', needsParams: ['questId', 'questState'] },
+    ]},
+    { category: 'Red', options: [
+        { value: 'CreateMatch', label: 'Crear Partida Online', needsParams: ['maxPlayers'] },
+        { value: 'JoinMatch', label: 'Unirse a Partida Online', needsParams: ['matchId'] },
+        { value: 'SendNetworkMessage', label: 'Enviar Mensaje de Red', needsParams: ['message'] },
+        { value: 'SetPlayerName', label: 'Establecer Nombre de Jugador', needsParams: ['name'] },
+    ]},
 ];
+const actionOptions = categorizedActionOptions.flatMap(c => c.options);
+
+const SelectorModal: React.FC<{
+  title: string;
+  categorizedItems: { category: string, options: { value: string, label: string }[] }[];
+  onSelect: (value: string) => void;
+  onClose: () => void;
+}> = ({ title, categorizedItems, onSelect, onClose }) => {
+    const [activeCategory, setActiveCategory] = useState(categorizedItems[0].category);
+    
+    return (
+        <div className="absolute inset-0 bg-gray-900/80 z-20 flex items-center justify-center" onClick={onClose}>
+            <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl h-96 flex flex-col border border-gray-700" onClick={e => e.stopPropagation()}>
+                <h4 className="text-md font-bold p-3 text-center border-b border-gray-700 shrink-0">{title}</h4>
+                <div className="flex-grow flex min-h-0">
+                    <aside className="w-1/3 border-r border-gray-700 p-2 overflow-y-auto">
+                        {categorizedItems.map(group => (
+                            <button key={group.category} onClick={() => setActiveCategory(group.category)} 
+                                className={`w-full text-left text-sm p-2 rounded-md transition-colors ${activeCategory === group.category ? 'bg-indigo-600 text-white' : 'hover:bg-gray-700 text-gray-300'}`}>
+                                {group.category}
+                            </button>
+                        ))}
+                    </aside>
+                    <main className="w-2/3 p-2 overflow-y-auto">
+                        <ul>
+                        {(categorizedItems.find(g => g.category === activeCategory)?.options || []).map(option => (
+                            <li key={option.value} onClick={() => onSelect(option.value)} 
+                                className="p-2 rounded-md hover:bg-indigo-600 cursor-pointer text-gray-200">
+                                <h5 className="font-semibold text-sm">{option.label}</h5>
+                            </li>
+                        ))}
+                        </ul>
+                    </main>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDeleteEvent, onUpdateEvent, scene, animations, assets, globalVariables, allScenes }) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -92,6 +178,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [selectorOpen, setSelectorOpen] = useState<{type: 'condition' | 'action', index: number} | null>(null);
   
   const objectNames = useMemo(() => scene?.gameObjects.map(obj => obj.name) ?? [], [scene]);
   const audioAssets = useMemo(() => assets.filter(a => a.type === 'audio'), [assets]);
@@ -163,15 +250,17 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
   
   const updateCondition = (index: number, update: Partial<Condition>) => {
       const newConditions = [...conditions];
+      const oldTrigger = newConditions[index].trigger;
       newConditions[index] = { ...newConditions[index], ...update };
-      if (update.trigger) newConditions[index].params = {};
+      if (update.trigger && update.trigger !== oldTrigger) newConditions[index].params = {};
       setConditions(newConditions);
   };
   
   const updateAction = (index: number, update: Partial<Action>) => {
       const newActions = [...actions];
+      const oldAction = newActions[index].action;
       newActions[index] = { ...newActions[index], ...update };
-      if (update.action) newActions[index].params = {};
+      if (update.action && update.action !== oldAction) newActions[index].params = {};
       setActions(newActions);
   };
   
@@ -304,6 +393,19 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-gray-900 rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col border border-gray-800" onClick={e => e.stopPropagation()}>
+        {selectorOpen && <SelectorModal
+            title={selectorOpen.type === 'condition' ? 'Seleccionar Disparador' : 'Seleccionar Acción'}
+            categorizedItems={selectorOpen.type === 'condition' ? categorizedTriggerOptions : categorizedActionOptions}
+            onClose={() => setSelectorOpen(null)}
+            onSelect={(value) => {
+                if (selectorOpen.type === 'condition') {
+                    updateCondition(selectorOpen.index, { trigger: value as Condition['trigger'] });
+                } else {
+                    updateAction(selectorOpen.index, { action: value as Action['action'] });
+                }
+                setSelectorOpen(null);
+            }}
+        />}
         <style>{`
             .input-field { background-color: #1f2937; border: 1px solid #374151; border-radius: 0.375rem; padding: 0.25rem 0.5rem; font-size: 0.875rem; }
         `}</style>
@@ -384,15 +486,14 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
                          <div className="w-1/2 space-y-3">
                             <h4 className="font-semibold text-red-400">Condiciones (CUANDO)</h4>
                             {conditions.map((cond, i) => (
-                                <div key={i} className="flex gap-1 items-start flex-wrap">
+                                <div key={i} className="flex gap-1 items-start flex-wrap p-2 bg-gray-800/50 rounded-md">
                                     <select className="input-field" value={cond.object ?? ''} onChange={e => updateCondition(i, { object: e.target.value })}>
                                         <option value="">Seleccionar Objeto</option>
                                         {['System', ...objectNames].map(name => <option key={name} value={name}>{name}</option>)}
                                     </select>
-                                    <select className="input-field" value={cond.trigger ?? ''} onChange={e => updateCondition(i, { trigger: e.target.value as Condition['trigger'] })}>
-                                        <option value="">Seleccionar Disparador</option>
-                                        {triggerOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                                    </select>
+                                    <button onClick={() => setSelectorOpen({type: 'condition', index: i})} className="input-field text-left flex-grow min-w-[120px] hover:bg-gray-600">
+                                        {triggerOptions.find(opt => opt.value === cond.trigger)?.label || 'Seleccionar Disparador'}
+                                    </button>
                                     {triggerOptions.find(o => o.value === cond.trigger)?.needsTarget && 
                                       <select className="input-field" value={cond.target ?? ''} onChange={e => updateCondition(i, { target: e.target.value })}>
                                         <option value="">Seleccionar Objetivo</option>
@@ -405,15 +506,14 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
                          <div className="w-1/2 space-y-3">
                             <h4 className="font-semibold text-blue-400">Acciones (HACER)</h4>
                             {actions.map((act, i) => (
-                                <div key={i} className="flex gap-1 items-start flex-wrap">
+                                <div key={i} className="flex gap-1 items-start flex-wrap p-2 bg-gray-800/50 rounded-md">
                                     <select className="input-field" value={act.object ?? ''} onChange={e => updateAction(i, { object: e.target.value })}>
                                         <option value="">Seleccionar Objeto</option>
                                         {['System', ...objectNames].map(name => <option key={name} value={name}>{name}</option>)}
                                     </select>
-                                    <select className="input-field" value={act.action ?? ''} onChange={e => updateAction(i, { action: e.target.value as Action['action'] })}>
-                                        <option value="">Seleccionar Acción</option>
-                                        {actionOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                                    </select>
+                                    <button onClick={() => setSelectorOpen({type: 'action', index: i})} className="input-field text-left flex-grow min-w-[120px] hover:bg-gray-600">
+                                        {actionOptions.find(opt => opt.value === act.action)?.label || 'Seleccionar Acción'}
+                                    </button>
                                     {renderParamInput('action', act, i)}
                                 </div>
                             ))}
