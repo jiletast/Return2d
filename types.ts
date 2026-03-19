@@ -17,7 +17,7 @@ export interface Variable {
     value: string | number | boolean;
 }
 
-export type ObjectTrigger = 'OnStart' | 'OnUpdate' | 'OnClick' | 'OnCollisionWith' | 'CompareObjectVariable';
+export type ObjectTrigger = 'OnStart' | 'OnUpdate' | 'OnClick' | 'OnCollisionWith' | 'CompareObjectVariable' | 'Always';
 
 export interface ObjectScript {
   id: string;
@@ -97,14 +97,14 @@ export interface Animation {
 
 export interface Condition {
   object: string;
-  trigger: 'OnStart' | 'OnCollisionWith' | 'OnKeyPress' | 'CompareVariable' | 'OnObjectClicked' | 'IsIdle' | 'IsRunning' | 'IsJumping' | 'OnAttack' | 'OnVerticalCollision' | 'OnHorizontalCollision' | 'IsOnGround' | 'IsMoving' | 'OnMatchFound' | 'OnPlayerJoined' | 'OnPlayerLeft' | 'OnReceiveNetworkMessage' | 'IsMusicPlaying' | 'CompareStat' | 'CompareObjectVariable' | 'OnJoystickMove' | 'OnJoystickUp' | 'OnJoystickDown' | 'OnJoystickLeft' | 'OnJoystickRight' | 'OnTimerElapsed' | 'EveryXSeconds';
+  trigger: 'OnStart' | 'OnCollisionWith' | 'OnKeyPress' | 'CompareVariable' | 'OnObjectClicked' | 'IsIdle' | 'IsRunning' | 'IsJumping' | 'OnAttack' | 'OnVerticalCollision' | 'OnHorizontalCollision' | 'IsOnGround' | 'IsMoving' | 'OnMatchFound' | 'OnPlayerJoined' | 'OnPlayerLeft' | 'OnReceiveNetworkMessage' | 'IsMusicPlaying' | 'CompareStat' | 'CompareObjectVariable' | 'OnJoystickMove' | 'OnJoystickUp' | 'OnJoystickDown' | 'OnJoystickLeft' | 'OnJoystickRight' | 'OnTimerElapsed' | 'EveryXSeconds' | 'Always';
   target?: string;
   params?: Record<string, any>;
 }
 
 export interface Action {
   object: string; // Can be an object name, 'System', or 'Self' for object scripts
-  action: 'Destroy' | 'AddToVariable' | 'SetVariable' | 'GoToScene' | 'SetUIText' | 'SetObjectPosition' | 'PlaySound' | 'SetBackgroundColor' | 'PlayAnimation' | 'ModifyStat' | 'ShowDialogue' | 'SetQuestState' | 'CreateMatch' | 'JoinMatch' | 'SendNetworkMessage' | 'SetPlayerName' | 'CreateObject' | 'PlayVideo' | 'PauseVideo' | 'StopVideo' | 'SaveGame' | 'LoadGame' | 'SetCameraZoom' | 'SetBackgroundMusic' | 'StopBackgroundMusic' | 'SetBackgroundMusicVolume' | 'SetObjectVariable' | 'AddToObjectVariable' | 'StartTimer' | 'StopTimer' | 'MoveObject' | 'ForceJump' | 'TriggerAttack' | 'SetParent';
+  action: 'Destroy' | 'AddToVariable' | 'SetVariable' | 'GoToScene' | 'SetUIText' | 'SetObjectPosition' | 'PlaySound' | 'SetBackgroundColor' | 'PlayAnimation' | 'ModifyStat' | 'ShowDialogue' | 'SetQuestState' | 'CreateMatch' | 'JoinMatch' | 'SendNetworkMessage' | 'SetPlayerName' | 'CreateObject' | 'PlayVideo' | 'PauseVideo' | 'StopVideo' | 'SaveGame' | 'LoadGame' | 'SetCameraZoom' | 'SetBackgroundMusic' | 'StopBackgroundMusic' | 'PauseBackgroundMusic' | 'ResumeBackgroundMusic' | 'SetBackgroundMusicVolume' | 'SetObjectVariable' | 'AddToObjectVariable' | 'StartTimer' | 'StopTimer' | 'MoveObject' | 'ForceJump' | 'TriggerAttack' | 'SetParent';
   params?: Record<string, any>;
 }
 

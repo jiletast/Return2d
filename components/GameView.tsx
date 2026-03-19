@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import type { Scene, GameObject, Animation, GameAsset, Behavior, Variable, Action, Condition, CollisionProperties, ProjectData } from '../types';
 
@@ -238,6 +239,16 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                     currentBackgroundMusicId.current = null;
                 }
                 break;
+            case 'PauseBackgroundMusic':
+                if (backgroundMusicPlayer.current) {
+                    backgroundMusicPlayer.current.pause();
+                }
+                break;
+            case 'ResumeBackgroundMusic':
+                if (backgroundMusicPlayer.current) {
+                    backgroundMusicPlayer.current.play().catch(() => {});
+                }
+                break;
             case 'SetBackgroundMusicVolume':
                 if (backgroundMusicPlayer.current && action.params?.volume != null) {
                     const volume = Math.max(0, Math.min(100, Number(action.params.volume))) / 100;
@@ -402,6 +413,8 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
     const obj = gameObjectsRef.current.find(o => o.name === cond.object);
     
     switch (cond.trigger) {
+        case 'Always':
+            return true;
         case 'OnCollisionWith':
         case 'OnVerticalCollision':
         case 'OnHorizontalCollision':

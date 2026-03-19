@@ -4,6 +4,7 @@ import { SaveIcon } from './icons/SaveIcon';
 import { ExportIcon } from './icons/ExportIcon';
 import { StopIcon } from './StopIcon';
 import { BackButtonIcon } from './icons/BackButtonIcon';
+import { CodeIcon } from './icons/CodeIcon';
 import { Logo } from './Logo';
 
 interface HeaderProps {
@@ -11,12 +12,13 @@ interface HeaderProps {
   isPlaying: boolean;
   onTogglePlay: () => void;
   onExport: () => void;
+  onViewCode: () => void;
   onReturnToStart: () => void;
   projectName: string;
   onUpdateProjectName: (newName: string) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onSave, isPlaying, onTogglePlay, onExport, onReturnToStart, projectName, onUpdateProjectName }) => {
+const Header: React.FC<HeaderProps> = ({ onSave, isPlaying, onTogglePlay, onExport, onViewCode, onReturnToStart, projectName, onUpdateProjectName }) => {
   const iconButtonStyle = "p-2 bg-gray-800 hover:bg-indigo-600 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
   const playButtonStyle = "p-2 bg-green-600 hover:bg-green-500 rounded-md transition-colors duration-200";
   const stopButtonStyle = "p-2 bg-red-600 hover:bg-red-500 rounded-md transition-colors duration-200";
@@ -49,6 +51,13 @@ const Header: React.FC<HeaderProps> = ({ onSave, isPlaying, onTogglePlay, onExpo
           onClick={onTogglePlay}
         >
           {isPlaying ? <StopIcon /> : <PlayIcon />}
+        </button>
+        <button 
+          className={iconButtonStyle} 
+          title="Ver Código HTML"
+          onClick={onViewCode}
+        >
+          <CodeIcon />
         </button>
         <button 
           className={iconButtonStyle} 

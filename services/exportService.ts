@@ -1,3 +1,4 @@
+
 import type { ProjectData } from '../types';
 
 export const generateGameHTML = (projectData?: ProjectData | null): string => {
@@ -239,6 +240,16 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                         currentBackgroundMusicId = null;
                     }
                     break;
+                case 'PauseBackgroundMusic':
+                    if (backgroundMusicPlayer) {
+                        backgroundMusicPlayer.pause();
+                    }
+                    break;
+                case 'ResumeBackgroundMusic':
+                    if (backgroundMusicPlayer) {
+                        backgroundMusicPlayer.play().catch(()=>{});
+                    }
+                    break;
                 case 'SetBackgroundMusicVolume':
                     if (backgroundMusicPlayer && action.params?.volume != null) {
                         backgroundMusicPlayer.volume = Math.max(0, Math.min(100, Number(action.params.volume))) / 100;
@@ -333,6 +344,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             const { variable, operator, value, stat } = cond.params || {};
             const obj = gameObjects.find(o => o.name === cond.object);
             switch (cond.trigger) {
+                case 'Always': return true;
                 case 'OnCollisionWith': case 'OnVerticalCollision': case 'OnHorizontalCollision':
                     return frameCollisions.some(c => {
                         const pairMatch = ((c.obj1Name === cond.object && c.obj2Name === cond.target) || (c.obj2Name === cond.object && c.obj1Name === cond.target));

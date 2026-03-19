@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import type { GameEvent, Condition, Action, Scene, Animation, Variable, GameAsset } from '../types';
 import { TrashIcon } from './icons/TrashIcon';
@@ -27,7 +28,10 @@ const categorizedTriggerOptions: {
         needsTarget?: boolean;
     }[];
 }[] = [
-    { category: 'Núcleo', options: [{ value: 'OnStart', label: 'Al Iniciar la Escena' }] },
+    { category: 'Núcleo', options: [
+        { value: 'OnStart', label: 'Al Iniciar la Escena' },
+        { value: 'Always', label: 'Bucle Infinito (Siempre)' },
+    ]},
     { category: 'Entrada', options: [
         { value: 'OnKeyPress', label: 'Al Pulsar Tecla', needsParams: ['key'] },
         { value: 'OnObjectClicked', label: 'Al Hacer Clic en Objeto' },
@@ -114,6 +118,8 @@ const categorizedActionOptions: {
     { category: 'Audio', options: [
         { value: 'PlaySound', label: 'Reproducir Sonido (Efecto)', needsParams: ['soundId']},
         { value: 'SetBackgroundMusic', label: 'Establecer Música de Fondo', needsParams: ['soundId']},
+        { value: 'PauseBackgroundMusic', label: 'Pausar Música de Fondo' },
+        { value: 'ResumeBackgroundMusic', label: 'Reanudar Música de Fondo' },
         { value: 'StopBackgroundMusic', label: 'Detener Música de Fondo' },
         { value: 'SetBackgroundMusicVolume', label: 'Ajustar Volumen Música Fondo', needsParams: ['volume']},
     ]},

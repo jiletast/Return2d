@@ -93,6 +93,7 @@ const App: React.FC = () => {
 
   const [selectedObjectId, setSelectedObjectId] = useState<number | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [exportModalInitialShowCode, setExportModalInitialShowCode] = useState(false);
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [showAnimationEditor, setShowAnimationEditor] = useState(false);
   const [showSpriteEditor, setShowSpriteEditor] = useState(false);
@@ -330,7 +331,14 @@ const App: React.FC = () => {
             onSave={() => handleSaveCurrentProject(true)}
             isPlaying={false}
             onTogglePlay={() => setAppState('playing')}
-            onExport={() => setShowExportModal(true)}
+            onExport={() => {
+                setExportModalInitialShowCode(false);
+                setShowExportModal(true);
+            }}
+            onViewCode={() => {
+                setExportModalInitialShowCode(true);
+                setShowExportModal(true);
+            }}
             onReturnToStart={handleReturnToStart}
             projectName={projects.find(p => p.id === activeProjectId)?.name ?? 'Sin Título'}
             onUpdateProjectName={(newName) => {
@@ -408,7 +416,11 @@ const App: React.FC = () => {
             <button onClick={() => setActiveMobilePanel('inspector')} className={`flex-1 p-2 flex flex-col items-center ${activeMobilePanel === 'inspector' ? 'text-indigo-400' : ''}`}><InspectorIcon/> <span className="text-xs">Inspector</span></button>
         </div>
 
-        {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} projectData={projectData} />}
+        {showExportModal && <ExportModal 
+            onClose={() => setShowExportModal(false)} 
+            projectData={projectData} 
+            initialShowCode={exportModalInitialShowCode}
+        />}
         {showEventEditor && <EventEditor 
             onClose={() => setShowEventEditor(false)}
             scene={activeScene}
