@@ -862,8 +862,14 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             }
         }
 
-        window.addEventListener('keydown', (e) => { keysPressed[e.code.toLowerCase()] = true; });
-        window.addEventListener('keyup', (e) => { keysPressed[e.code.toLowerCase()] = false; });
+        window.addEventListener('keydown', (e) => { 
+            keysPressed[e.code.toLowerCase()] = true; 
+            keysPressed[e.key.toLowerCase()] = true;
+        });
+        window.addEventListener('keyup', (e) => { 
+            keysPressed[e.code.toLowerCase()] = false; 
+            keysPressed[e.key.toLowerCase()] = false;
+        });
         
         canvas.addEventListener('click', (e) => {
             if (!window.audioContext) {

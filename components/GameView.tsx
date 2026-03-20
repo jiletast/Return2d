@@ -579,8 +579,14 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
         });
     }
 
-    const handleKeyDown = (e: KeyboardEvent) => { keysPressed.current[e.code.toLowerCase()] = true; };
-    const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.code.toLowerCase()] = false; };
+    const handleKeyDown = (e: KeyboardEvent) => { 
+        keysPressed.current[e.code.toLowerCase()] = true; 
+        keysPressed.current[e.key.toLowerCase()] = true;
+    };
+    const handleKeyUp = (e: KeyboardEvent) => { 
+        keysPressed.current[e.code.toLowerCase()] = false; 
+        keysPressed.current[e.key.toLowerCase()] = false;
+    };
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
 
