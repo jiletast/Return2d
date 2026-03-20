@@ -434,6 +434,8 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
             return frameClicks.current.includes(cond.object);
         case 'OnKeyPress':
             return cond.params?.key && keysPressed.current[cond.params.key.toLowerCase()];
+        case 'OnAnyKeyPress':
+            return Object.values(keysPressed.current).some(v => v === true);
         case 'OnAttack':
             return frameAttacks.current.includes(cond.object);
         case 'OnTimerElapsed':

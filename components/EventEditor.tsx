@@ -34,6 +34,7 @@ const categorizedTriggerOptions: {
     ]},
     { category: 'Entrada', options: [
         { value: 'OnKeyPress', label: 'Al Pulsar Tecla', needsParams: ['key'] },
+        { value: 'OnAnyKeyPress', label: 'Al Pulsar Cualquier Tecla' },
         { value: 'OnObjectClicked', label: 'Al Hacer Clic en Objeto' },
         { value: 'OnJoystickMove', label: 'Al Mover Joystick (Cualquier dir.)' },
         { value: 'OnJoystickUp', label: 'Al Mover Joystick Hacia Arriba' },
@@ -349,6 +350,26 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
                     <option value="">Seleccionar Escena</option>
                     {sceneNames.map(name => <option key={name} value={name}>{name}</option>)}
                 </select>);
+            case 'key':
+                return (
+                    <div key={param} className="flex flex-col gap-1">
+                        <input 
+                            type="text" 
+                            placeholder="Haz clic y pulsa una tecla..." 
+                            className="input-field w-48 text-center font-mono cursor-pointer hover:bg-gray-700 transition-colors" 
+                            value={item.params?.[param] ?? ''} 
+                            onKeyDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                let keyName = e.key.toLowerCase();
+                                if (keyName === ' ') keyName = 'space';
+                                updateParams({[param]: keyName});
+                            }}
+                            readOnly
+                        />
+                        <span className="text-[10px] text-gray-400 text-center">Captura automática al pulsar</span>
+                    </div>
+                );
             case 'parentName':
                 return ( <select key={param} className="input-field" value={item.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
                     <option value="">Ninguno (Liberar)</option>

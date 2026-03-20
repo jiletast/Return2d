@@ -354,6 +354,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     });
                 case 'OnObjectClicked': return frameClicks.includes(cond.object);
                 case 'OnKeyPress': return cond.params?.key && keysPressed[cond.params.key.toLowerCase()];
+                case 'OnAnyKeyPress': return Object.values(keysPressed).some(v => v === true);
                 case 'OnAttack': return frameAttacks.includes(cond.object);
                 case 'OnTimerElapsed': return frameTimerEvents.includes(cond.params?.timerName);
                 case 'CompareVariable': {

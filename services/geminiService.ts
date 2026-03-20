@@ -35,7 +35,7 @@ const eventSchema = {
                 },
                 trigger: {
                   type: Type.STRING,
-                  description: "The event trigger (e.g., 'OnCollisionWith', 'OnKeyPress', 'OnStart', 'CompareVariable')."
+                  description: "The event trigger (e.g., 'OnCollisionWith', 'OnKeyPress', 'OnAnyKeyPress', 'OnStart', 'CompareVariable')."
                 },
                 target: {
                   type: Type.STRING,
