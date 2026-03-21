@@ -624,6 +624,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             ['moveLeft','moveRight','moveUp','moveDown','jump','attack'].forEach(act => {
                 if (!actionsPressed[act+'_ui']) actionsPressed[act] = false;
             });
+            actionsPressed.moveHorizontalIntensity = 0;
             
             const joystickUpNow = joystickState.active && joystickState.angle > -135 && joystickState.angle < -45;
 
@@ -636,13 +637,18 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                 const angle = joystickState.angle;
                 const angleRad = angle * (Math.PI / 180);
                 const horizontalProjection = Math.cos(angleRad);
+                const maxDistance = joystickSize / 2;
+                const intensity = joystickState.distance / maxDistance;
                 
-                if (horizontalProjection > 0.15) {
-                   actionsPressed.moveRight = true;
-                   if (!frameJoystickEvents.includes('right')) frameJoystickEvents.push('right');
-                } else if (horizontalProjection < -0.15) {
-                   actionsPressed.moveLeft = true;
-                   if (!frameJoystickEvents.includes('left')) frameJoystickEvents.push('left');
+                if (Math.abs(horizontalProjection) > 0.15) {
+                   actionsPressed.moveHorizontalIntensity = horizontalProjection * intensity;
+                   if (horizontalProjection > 0) {
+                       actionsPressed.moveRight = true;
+                       if (!frameJoystickEvents.includes('right')) frameJoystickEvents.push('right');
+                   } else {
+                       actionsPressed.moveLeft = true;
+                       if (!frameJoystickEvents.includes('left')) frameJoystickEvents.push('left');
+                   }
                 }
 
                 if (angle > 45 && angle < 135) {
@@ -656,6 +662,14 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                 }
             }
             
+            let keyboardHorizontal = 0;
+            if (keysPressed['arrowleft'] || keysPressed['keya']) keyboardHorizontal -= 1;
+            if (keysPressed['arrowright'] || keysPressed['keyd']) keyboardHorizontal += 1;
+            
+            if (keyboardHorizontal !== 0) {
+                actionsPressed.moveHorizontalIntensity = keyboardHorizontal;
+            }
+
             if (keysPressed['arrowleft'] || keysPressed['keya']) actionsPressed.moveLeft = true;
             if (keysPressed['arrowright'] || keysPressed['keyd']) actionsPressed.moveRight = true;
             if (keysPressed['arrowup'] || keysPressed['keyw']) actionsPressed.moveUp = true;
@@ -663,15 +677,8 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             if (keysPressed['space']) actionsPressed.jump = true;
             if (keysPressed['keyx']) actionsPressed.attack = true;
 
-            if (actionsPressed.jump) {
-                if (!actionsPressed.jumpPressed) { actionsPressed.jumpAction = true; actionsPressed.jumpPressed = true; } 
-                else { actionsPressed.jumpAction = false; }
-            } else { actionsPressed.jumpPressed = false; actionsPressed.jumpAction = false; }
-
-            if (actionsPressed.attack) {
-                if (!actionsPressed.attackPressed) { actionsPressed.attackAction = true; actionsPressed.attackPressed = true; }
-                else { actionsPressed.attackAction = false; }
-            } else { actionsPressed.attackPressed = false; actionsPressed.attackAction = false; }
+            actionsPressed.jumpAction = actionsPressed.jump;
+            actionsPressed.attackAction = actionsPressed.attack;
 
             gameObjects.forEach(obj => {
                 // Process scripts for all objects, including UI
@@ -749,7 +756,10 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     if ((obj.vx || 0) > 0) obj.direction = 'right';
                     if ((obj.vx || 0) < 0) obj.direction = 'left';
                     
-                    if (actionsPressed.jumpAction && obj.grounded) obj.vy = -jumpForce;
+                    if (actionsPressed.jumpAction && obj.grounded) {
+                        obj.vy = -jumpForce;
+                        obj.grounded = false;
+                    }
                     if (actionsPressed.attackAction) {
                         frameAttacks.push(obj.name);
                     }
@@ -785,27 +795,55 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
 
                 const physics = obj.behaviors?.find(b => ['Physics', 'PlatformerCharacter'].includes(b.name || ''));
                 if (physics) {
-                    obj.x += (obj.vx || 0) * deltaTime;
+                    // Apply gravity and vertical movement first
+                    obj.grounded = false;
+                    const { gravity } = physics.properties;
+                    obj.vy = (obj.vy || 0) + gravity * deltaTime;
+                    obj.y += (obj.vy || 0) * deltaTime;
+                    
                     let absPos = getObjectAbsolutePosition(obj.id, objectsById);
+                    let objWithAbsPos = {...obj, ...absPos};
+
+                    // Vertical collision resolution
                     for (const solidShape of staticCollisionShapes) {
-                        if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox({...obj, ...absPos}), solidShape)) {
-                            frameCollisions.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnHorizontalCollision' });
-                            if (obj.vx > 0) obj.x = solidShape.x - getCollisionBox(obj).width - (absPos.x - obj.x);
-                            else if (obj.vx < 0) obj.x = solidShape.x + solidShape.width - (absPos.x - obj.x);
-                            obj.vx = 0;
+                        if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox(objWithAbsPos), solidShape)) {
+                            frameCollisions.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnVerticalCollision' });
+                            if (obj.vy > 0) {
+                                obj.y = solidShape.y - getCollisionBox(objWithAbsPos).height - (absPos.y - obj.y);
+                                obj.grounded = true;
+                                obj.vy = 0;
+                            } else if (obj.vy < 0) {
+                                obj.y = solidShape.y + solidShape.height - (absPos.y - obj.y);
+                                obj.vy = 0;
+                            }
                             break;
                         }
                     }
-                    obj.grounded = false;
-                    obj.vy += physics.properties.gravity * deltaTime;
-                    obj.y += (obj.vy || 0) * deltaTime;
+
+                    // Apply horizontal movement
+                    obj.x += (obj.vx || 0) * deltaTime;
                     absPos = getObjectAbsolutePosition(obj.id, objectsById);
+                    objWithAbsPos = {...obj, ...absPos};
+
+                    // Horizontal collision resolution with a slightly shrunk box vertically to avoid floor friction
                     for (const solidShape of staticCollisionShapes) {
-                        if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox({...obj, ...absPos}), solidShape)) {
-                            frameCollisions.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnVerticalCollision' });
-                            if (obj.vy > 0) { obj.y = solidShape.y - getCollisionBox(obj).height - (absPos.y - obj.y); obj.grounded = true; obj.vy = 0; } 
-                            else if (obj.vy < 0) { obj.y = solidShape.y + solidShape.height - (absPos.y - obj.y); obj.vy = 0; }
-                            break;
+                        const horizontalBox = getCollisionBox(objWithAbsPos);
+                        const shrinkAmount = 2; // Pixels to shrink from top and bottom
+                        const adjustedBox = {
+                            ...horizontalBox,
+                            y: horizontalBox.y + shrinkAmount,
+                            height: Math.max(1, horizontalBox.height - 2 * shrinkAmount)
+                        };
+
+                        if (obj.id !== solidShape.owner.id && isColliding(adjustedBox, solidShape)) {
+                            frameCollisions.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnHorizontalCollision' });
+                            if ((obj.vx || 0) > 0) {
+                                obj.x = solidShape.x - horizontalBox.width - (absPos.x - obj.x);
+                            } else if ((obj.vx || 0) < 0) {
+                                obj.x = solidShape.x + solidShape.width - (absPos.x - obj.x);
+                            }
+                            obj.vx = 0;
+                            break; 
                         }
                     }
                 } else if (rpgMovement) {

@@ -1010,35 +1010,21 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                 }
             }
           } else if (physics) {
-              obj.x += (obj.vx || 0) * deltaTime;
-              let currentAbsPos = getObjectAbsolutePosition(obj.id, objectsById);
-              const objWithAbsPos = {...obj, ...currentAbsPos};
-
-              for (const solidShape of staticCollisionShapes) {
-                  if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox(objWithAbsPos), solidShape)) {
-                      frameCollisions.current.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnHorizontalCollision' });
-                      if ((obj.vx || 0) > 0) {
-                          obj.x = solidShape.x - getCollisionBox(objWithAbsPos).width - (currentAbsPos.x - obj.x);
-                      } else if ((obj.vx || 0) < 0) {
-                          obj.x = solidShape.x + solidShape.width - (currentAbsPos.x - obj.x);
-                      }
-                      obj.vx = 0;
-                      break; 
-                  }
-              }
-
+              // Apply gravity and vertical movement first
               obj.grounded = false;
               const { gravity } = physics.properties;
-              obj.vy! += gravity * deltaTime;
+              obj.vy = (obj.vy || 0) + gravity * deltaTime;
               obj.y += (obj.vy || 0) * deltaTime;
-              currentAbsPos = getObjectAbsolutePosition(obj.id, objectsById);
-              const newObjWithAbsPos = {...obj, ...currentAbsPos};
+              
+              let currentAbsPos = getObjectAbsolutePosition(obj.id, objectsById);
+              let objWithAbsPos = {...obj, ...currentAbsPos};
 
+              // Vertical collision resolution
               for (const solidShape of staticCollisionShapes) {
-                  if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox(newObjWithAbsPos), solidShape)) {
+                  if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox(objWithAbsPos), solidShape)) {
                       frameCollisions.current.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnVerticalCollision' });
                       if (obj.vy! > 0) {
-                          obj.y = solidShape.y - getCollisionBox(newObjWithAbsPos).height - (currentAbsPos.y - obj.y);
+                          obj.y = solidShape.y - getCollisionBox(objWithAbsPos).height - (currentAbsPos.y - obj.y);
                           obj.grounded = true;
                           obj.vy = 0;
                       } else if (obj.vy! < 0) {
@@ -1046,6 +1032,33 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                           obj.vy = 0;
                       }
                       break;
+                  }
+              }
+
+              // Apply horizontal movement
+              obj.x += (obj.vx || 0) * deltaTime;
+              currentAbsPos = getObjectAbsolutePosition(obj.id, objectsById);
+              objWithAbsPos = {...obj, ...currentAbsPos};
+
+              // Horizontal collision resolution with a slightly shrunk box vertically to avoid floor friction
+              for (const solidShape of staticCollisionShapes) {
+                  const horizontalBox = getCollisionBox(objWithAbsPos);
+                  const shrinkAmount = 2; // Pixels to shrink from top and bottom
+                  const adjustedBox = {
+                      ...horizontalBox,
+                      y: horizontalBox.y + shrinkAmount,
+                      height: Math.max(1, horizontalBox.height - 2 * shrinkAmount)
+                  };
+
+                  if (obj.id !== solidShape.owner.id && isColliding(adjustedBox, solidShape)) {
+                      frameCollisions.current.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnHorizontalCollision' });
+                      if ((obj.vx || 0) > 0) {
+                          obj.x = solidShape.x - horizontalBox.width - (currentAbsPos.x - obj.x);
+                      } else if ((obj.vx || 0) < 0) {
+                          obj.x = solidShape.x + solidShape.width - (currentAbsPos.x - obj.x);
+                      }
+                      obj.vx = 0;
+                      break; 
                   }
               }
           } else {

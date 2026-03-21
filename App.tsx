@@ -19,6 +19,7 @@ import Toast from './components/Toast';
 import { HierarchyIcon } from './components/icons/HierarchyIcon';
 import { EditorIcon } from './components/icons/EditorIcon';
 import { InspectorIcon } from './components/icons/InspectorIcon';
+import { get, set } from 'idb-keyval';
 
 
 const PROJECTS_STORAGE_KEY = 'return2d-projects';
@@ -109,33 +110,54 @@ const App: React.FC = () => {
 
   const debounceTimeout = useRef<number | null>(null);
 
-  useEffect(() => {
-    try {
-        const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
-        if (storedProjects) {
-            setProjects(JSON.parse(storedProjects));
-        }
-        const notice = localStorage.getItem(NOTICE_ACCEPTED_KEY);
-        setNoticeAccepted(notice === 'true');
-    } catch (error) {
-        console.error("Error loading from localStorage:", error);
-    }
-    setTimeout(() => setAppState('start'), 1000);
-  }, []);
-
   const showToast = useCallback((message: string) => {
     setToast({ message, show: true });
     setTimeout(() => setToast({ message: '', show: false }), 3000);
   }, []);
-  
-  const handleSaveProjects = useCallback((updatedProjects: Project[]) => {
+
+  useEffect(() => {
+    const loadData = async () => {
+        try {
+            // Try loading from IndexedDB first
+            let storedProjects = await get(PROJECTS_STORAGE_KEY);
+            
+            // If not in IndexedDB, check localStorage for migration
+            if (!storedProjects) {
+                const legacyProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
+                if (legacyProjects) {
+                    storedProjects = JSON.parse(legacyProjects);
+                    // Migrate to IndexedDB
+                    await set(PROJECTS_STORAGE_KEY, storedProjects);
+                    // Clear legacy storage to free up space
+                    localStorage.removeItem(PROJECTS_STORAGE_KEY);
+                }
+            }
+
+            if (storedProjects) {
+                setProjects(storedProjects);
+            }
+
+            const notice = localStorage.getItem(NOTICE_ACCEPTED_KEY);
+            setNoticeAccepted(notice === 'true');
+        } catch (error) {
+            console.error("Error loading projects:", error);
+            showToast("Error al cargar los proyectos");
+        }
+        setTimeout(() => setAppState('start'), 1000);
+    };
+
+    loadData();
+  }, [showToast]);
+
+  const handleSaveProjects = useCallback(async (updatedProjects: Project[]) => {
       try {
-          localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(updatedProjects));
+          await set(PROJECTS_STORAGE_KEY, updatedProjects);
           setProjects(updatedProjects);
       } catch (error) {
-          console.error("Error saving projects to localStorage:", error);
+          console.error("Error saving projects to IndexedDB:", error);
+          showToast("Error al guardar: Espacio insuficiente o error de base de datos");
       }
-  }, []);
+  }, [showToast]);
   
   const handleSaveCurrentProject = useCallback((showNotification = false) => {
     if (!activeProjectId || !projectData) return;
