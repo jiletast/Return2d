@@ -73,6 +73,31 @@ export interface GameObject {
   patrolStartX?: number; // For Patrol behavior
   isAttacking?: boolean; // For attack behavior state
   pendingMovements?: { direction: string; speed: number }[]; // For MoveObject action
+  oscillation?: {
+    axis: 'x' | 'y';
+    distance: number;
+    speed: number;
+    initialX: number;
+    initialY: number;
+    startTime: number;
+  };
+  scaleOscillation?: {
+    distance: number;
+    speed: number;
+    initialScaleX: number;
+    initialScaleY: number;
+    startTime: number;
+  };
+  rotationSpeed?: number;
+  initialX?: number;
+  initialY?: number;
+  initialScaleX?: number;
+  initialScaleY?: number;
+  animOffsetX?: number;
+  animOffsetY?: number;
+  animRotation?: number;
+  animScaleX?: number;
+  animScaleY?: number;
 }
 
 export interface GameAsset {
@@ -85,6 +110,11 @@ export interface GameAsset {
 export interface AnimationKeyframe {
   assetId: string; // id of the image asset
   duration: number; // in milliseconds
+  x?: number;
+  y?: number;
+  rotation?: number;
+  scaleX?: number;
+  scaleY?: number;
 }
 
 export interface Animation {
@@ -104,7 +134,7 @@ export interface Condition {
 
 export interface Action {
   object: string; // Can be an object name, 'System', or 'Self' for object scripts
-  action: 'Destroy' | 'AddToVariable' | 'SetVariable' | 'GoToScene' | 'SetUIText' | 'SetObjectPosition' | 'PlaySound' | 'SetBackgroundColor' | 'PlayAnimation' | 'ModifyStat' | 'ShowDialogue' | 'SetQuestState' | 'CreateMatch' | 'JoinMatch' | 'SendNetworkMessage' | 'SetPlayerName' | 'CreateObject' | 'PlayVideo' | 'PauseVideo' | 'StopVideo' | 'SaveGame' | 'LoadGame' | 'SetCameraZoom' | 'SetBackgroundMusic' | 'StopBackgroundMusic' | 'PauseBackgroundMusic' | 'ResumeBackgroundMusic' | 'SetBackgroundMusicVolume' | 'SetObjectVariable' | 'AddToObjectVariable' | 'StartTimer' | 'StopTimer' | 'MoveObject' | 'ForceJump' | 'TriggerAttack' | 'SetParent';
+  action: 'Destroy' | 'AddToVariable' | 'SetVariable' | 'GoToScene' | 'SetUIText' | 'SetObjectPosition' | 'PlaySound' | 'SetBackgroundColor' | 'SetBackgroundMusic' | 'StopBackgroundMusic' | 'PauseBackgroundMusic' | 'ResumeBackgroundMusic' | 'SetBackgroundMusicVolume' | 'PlayAnimation' | 'ModifyStat' | 'ShowDialogue' | 'SetQuestState' | 'CreateMatch' | 'JoinMatch' | 'SendNetworkMessage' | 'SetPlayerName' | 'CreateObject' | 'PlayVideo' | 'PauseVideo' | 'StopVideo' | 'SaveGame' | 'LoadGame' | 'SetCameraZoom' | 'SetObjectVariable' | 'AddToObjectVariable' | 'StartTimer' | 'StopTimer' | 'MoveObject' | 'ForceJump' | 'TriggerAttack' | 'SetParent' | 'RotateObject' | 'ScaleObject' | 'GenerateObjectAt' | 'OscillateObject' | 'OscillateScale' | 'RotateContinuously' | 'SetScale' | 'SetVelocityX' | 'SetVelocityY' | 'SetRotationSpeed';
   params?: Record<string, any>;
 }
 

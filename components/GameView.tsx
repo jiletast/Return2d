@@ -93,6 +93,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
   const frameJoystickEvents = useRef<string[]>([]);
   const frameTimerEvents = useRef<string[]>([]);
   const frameAttacks = useRef<string[]>([]);
+  const frameKeyPresses = useRef<string[]>([]);
   const timersRef = useRef<Map<string, { startTime: number; duration: number }>>(new Map());
   const intervalsRef = useRef<Map<string, { interval: number; lastTriggerTime: number }>>(new Map());
 
@@ -103,7 +104,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
   const audioContextRef = useRef<AudioContext | null>(null);
   const joystickUpPreviousFrame = useRef(false);
 
-    const executeAction = (action: Action, self?: GameObject) => {
+    const executeAction = (action: Action, self?: GameObject, forceRestart: boolean = false) => {
       let targetObj : GameObject | undefined;
       if (action.object === 'Self' && self) {
           targetObj = gameObjectsRef.current.find(o => o.id === self.id);
@@ -150,12 +151,16 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
               break;
           case 'PlayAnimation':
               if(targetObj && action.params?.animationId) {
-                  const anim = animations.find(a => a.id === action.params?.animationId);
+                  const animId = String(action.params.animationId);
+                  const anim = animations.find(a => a.id === animId);
                   if (anim) {
-                      activeAnimations.current.set(targetObj.id, {
-                          animation: anim,
-                          startTime: performance.now(),
-                      });
+                      const currentAnim = activeAnimations.current.get(targetObj.id);
+                      if (forceRestart || !currentAnim || currentAnim.animation.id !== anim.id) {
+                          activeAnimations.current.set(targetObj.id, {
+                              animation: anim,
+                              startTime: performance.now(),
+                          });
+                      }
                   }
               }
               break;
@@ -175,6 +180,94 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                     const speed = Number(action.params.speed);
                     if (!targetObj.pendingMovements) targetObj.pendingMovements = [];
                     targetObj.pendingMovements.push({ direction: action.params.direction, speed });
+                }
+                break;
+          case 'SetVelocityX':
+                if (targetObj && action.params?.velocity != null) {
+                    targetObj.vx = Number(action.params.velocity);
+                }
+                break;
+          case 'SetVelocityY':
+                if (targetObj && action.params?.velocity != null) {
+                    targetObj.vy = Number(action.params.velocity);
+                }
+                break;
+          case 'SetRotationSpeed':
+                if (targetObj && action.params?.speed != null) {
+                    targetObj.rotationSpeed = Number(action.params.speed);
+                }
+                break;
+            case 'OscillateObject':
+                if (targetObj && action.params?.axis && action.params?.distance != null && action.params?.speed != null) {
+                    targetObj.oscillation = {
+                        axis: action.params.axis as 'x' | 'y',
+                        distance: Number(action.params.distance),
+                        speed: Number(action.params.speed),
+                        initialX: targetObj.initialX ?? targetObj.x,
+                        initialY: targetObj.initialY ?? targetObj.y,
+                        startTime: performance.now()
+                    };
+                    if (targetObj.initialX === undefined) targetObj.initialX = targetObj.x;
+                    if (targetObj.initialY === undefined) targetObj.initialY = targetObj.y;
+                }
+                break;
+            case 'OscillateScale':
+                if (targetObj && action.params?.distance != null && action.params?.speed != null) {
+                    targetObj.scaleOscillation = {
+                        distance: Number(action.params.distance),
+                        speed: Number(action.params.speed),
+                        initialScaleX: targetObj.initialScaleX ?? (targetObj.scaleX || 1),
+                        initialScaleY: targetObj.initialScaleY ?? (targetObj.scaleY || 1),
+                        startTime: performance.now()
+                    };
+                    if (targetObj.initialScaleX === undefined) targetObj.initialScaleX = targetObj.scaleX || 1;
+                    if (targetObj.initialScaleY === undefined) targetObj.initialScaleY = targetObj.scaleY || 1;
+                }
+                break;
+            case 'RotateContinuously':
+                if (targetObj && action.params?.speed != null) {
+                    targetObj.rotationSpeed = Number(action.params.speed);
+                }
+                break;
+            case 'RotateObject':
+                if (targetObj && action.params?.rotation != null) {
+                    const rotation = Number(action.params.rotation || 0);
+                    targetObj.rotation = ((targetObj.rotation || 0) + rotation) % 360;
+                    if (targetObj.rotation < 0) targetObj.rotation += 360;
+                }
+                break;
+            case 'ScaleObject':
+                if (targetObj && action.params?.scaleX != null && action.params?.scaleY != null) {
+                    const scaleX = Number(action.params.scaleX || 1);
+                    const scaleY = Number(action.params.scaleY || 1);
+                    targetObj.scaleX = Math.max(0.01, (targetObj.scaleX ?? 1) * scaleX);
+                    targetObj.scaleY = Math.max(0.01, (targetObj.scaleY ?? 1) * scaleY);
+                }
+                break;
+            case 'SetScale':
+                if (targetObj && action.params?.scaleX != null && action.params?.scaleY != null) {
+                    targetObj.scaleX = Math.max(0.01, Number(action.params.scaleX));
+                    targetObj.scaleY = Math.max(0.01, Number(action.params.scaleY));
+                }
+                break;
+            case 'GenerateObjectAt':
+                if (action.params?.templateObjectName && action.params?.targetObjectName) {
+                    const templateObj = scene.gameObjects.find(o => o.name === action.params.templateObjectName);
+                    const targetObjRef = gameObjectsRef.current.find(o => o.name === action.params.targetObjectName);
+                    if (templateObj && targetObjRef) {
+                        const newObj = {
+                            ...JSON.parse(JSON.stringify(templateObj)),
+                            id: Date.now() + Math.random(),
+                            x: targetObjRef.x,
+                            y: targetObjRef.y
+                        };
+                        gameObjectsRef.current.push(newObj);
+                    }
+                }
+                break;
+            case 'SetQuestState':
+                if (action.params?.questId && action.params?.questState) {
+                    gameVariables.current['quest_' + action.params.questId] = action.params.questState;
                 }
                 break;
             case 'ForceJump':
@@ -433,9 +526,9 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
         case 'OnObjectClicked':
             return frameClicks.current.includes(cond.object);
         case 'OnKeyPress':
-            return cond.params?.key && keysPressed.current[cond.params.key.toLowerCase()];
+            return cond.params?.key && frameKeyPresses.current.includes(cond.params.key.toLowerCase());
         case 'OnAnyKeyPress':
-            return Object.values(keysPressed.current).some(v => v === true);
+            return frameKeyPresses.current.length > 0;
         case 'OnAttack':
             return frameAttacks.current.includes(cond.object);
         case 'OnTimerElapsed':
@@ -517,7 +610,8 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
         }
         const conditionsMet = event.conditions.every(checkCondition);
         if (conditionsMet) {
-            event.actions.forEach(action => executeAction(action));
+            const isEventTrigger = event.conditions.some(c => ['OnClick', 'OnCollisionWith', 'OnKeyPress', 'OnAttack', 'OnTimerElapsed'].includes(c.trigger));
+            event.actions.forEach(action => executeAction(action, undefined, isEventTrigger));
         }
       });
   };
@@ -582,8 +676,14 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
     }
 
     const handleKeyDown = (e: KeyboardEvent) => { 
-        keysPressed.current[e.code.toLowerCase()] = true; 
-        keysPressed.current[e.key.toLowerCase()] = true;
+        const key = e.key.toLowerCase();
+        const code = e.code.toLowerCase();
+        if (!keysPressed.current[key] && !keysPressed.current[code]) {
+            frameKeyPresses.current.push(key);
+            frameKeyPresses.current.push(code);
+        }
+        keysPressed.current[code] = true; 
+        keysPressed.current[key] = true;
     };
     const handleKeyUp = (e: KeyboardEvent) => { 
         keysPressed.current[e.code.toLowerCase()] = false; 
@@ -597,8 +697,12 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
 
     const gameLoop = (timestamp: number) => {
       const now = performance.now();
-      if (lastTime === 0) lastTime = now;
-      const deltaTime = (now - lastTime) / 1000.0;
+      if (lastTime === 0) {
+        lastTime = now;
+        animationFrameId = requestAnimationFrame(gameLoop);
+        return;
+      }
+      const deltaTime = Math.min(0.1, (now - lastTime) / 1000.0);
       lastTime = now;
 
       const canvas = canvasRef.current;
@@ -754,18 +858,50 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
       }
 
       gameObjectsRef.current.forEach(obj => {
-          if(obj.isUI) return;
-          
           obj.scripts?.forEach(script => {
-            if (script.trigger === 'OnUpdate') {
-                script.actions.forEach(action => executeAction(action, obj));
+            if (script.trigger === 'OnUpdate' || script.trigger === 'Always') {
+                script.actions.forEach(action => executeAction(action, obj, false));
+            } else if (!['OnStart', 'OnClick', 'OnCollisionWith', 'OnTimerElapsed'].includes(script.trigger)) {
+                // Handle state-based triggers like IsRunning, IsJumping, CompareVariable, etc.
+                const mockCondition: Condition = {
+                    trigger: script.trigger as any,
+                    object: obj.name,
+                    params: script.params,
+                    target: script.params?.targetObjectName
+                };
+                if (checkCondition(mockCondition)) {
+                    script.actions.forEach(action => executeAction(action, obj, false));
+                }
             }
           });
 
+          if (obj.oscillation) {
+              const time = (performance.now() - obj.oscillation.startTime) / 1000;
+              const offset = Math.sin(time * obj.oscillation.speed) * obj.oscillation.distance;
+              if (obj.oscillation.axis === 'x') {
+                  obj.x = obj.oscillation.initialX + offset;
+              } else {
+                  obj.y = obj.oscillation.initialY + offset;
+              }
+          }
+
+          if (obj.rotationSpeed) {
+              obj.rotation = ((obj.rotation || 0) + obj.rotationSpeed * deltaTime) % 360;
+              if (obj.rotation < 0) obj.rotation += 360;
+          }
+
+          if (obj.scaleOscillation) {
+              const time = (performance.now() - obj.scaleOscillation.startTime) / 1000;
+              const offset = Math.sin(time * obj.scaleOscillation.speed) * obj.scaleOscillation.distance;
+              obj.scaleX = Math.max(0.01, obj.scaleOscillation.initialScaleX + offset);
+              obj.scaleY = Math.max(0.01, obj.scaleOscillation.initialScaleY + offset);
+          }
+
           if (obj.pendingMovements) {
               obj.pendingMovements.forEach(move => {
-                  const speed = move.speed;
-                  switch (move.direction) {
+                  const speed = Number(move.speed || 0);
+                  const direction = (move.direction || '').toLowerCase();
+                  switch (direction) {
                       case 'right': obj.x += speed * deltaTime; break;
                       case 'left': obj.x -= speed * deltaTime; break;
                       case 'up': obj.y -= speed * deltaTime; break;
@@ -774,6 +910,8 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
               });
               obj.pendingMovements = [];
           }
+
+          if(obj.isUI) return;
 
           const hasRPGMovement = obj.behaviors?.some(b => b.name === 'TopDownRPGMovement');
           const platformer = obj.behaviors?.find(b => b.name === 'PlatformerCharacter');
@@ -832,6 +970,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
             const objWithAbsPosH = {...obj, ...currentAbsPos};
             for (const solidShape of staticCollisionShapes) {
                 if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox(objWithAbsPosH), solidShape)) {
+                     frameCollisions.current.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnHorizontalCollision' });
                      if ((obj.vx || 0) > 0) obj.x = solidShape.x - getCollisionBox(objWithAbsPosH).width - (currentAbsPos.x - obj.x);
                      else if ((obj.vx || 0) < 0) obj.x = solidShape.x + solidShape.width - (currentAbsPos.x - obj.x);
                      obj.vx = 0;
@@ -844,6 +983,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
             const objWithAbsPosV = {...obj, ...currentAbsPos};
             for (const solidShape of staticCollisionShapes) {
                 if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox(objWithAbsPosV), solidShape)) {
+                     frameCollisions.current.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnVerticalCollision' });
                      if ((obj.vy || 0) > 0) obj.y = solidShape.y - getCollisionBox(objWithAbsPosV).height - (currentAbsPos.y - obj.y);
                      else if ((obj.vy || 0) < 0) obj.y = solidShape.y + solidShape.height - (currentAbsPos.y - obj.y);
                      obj.vy = 0;
@@ -909,7 +1049,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                   if (originalObj1) {
                       originalObj1.scripts?.forEach(script => {
                           if (script.trigger === 'OnCollisionWith' && (!script.params?.targetObjectName || script.params.targetObjectName === originalObj2?.name)) {
-                              script.actions.forEach(action => executeAction(action, originalObj1));
+                              script.actions.forEach(action => executeAction(action, originalObj1, true));
                           }
                       });
                   }
@@ -917,7 +1057,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                   if (originalObj2) {
                       originalObj2.scripts?.forEach(script => {
                           if (script.trigger === 'OnCollisionWith' && (!script.params?.targetObjectName || script.params.targetObjectName === originalObj1?.name)) {
-                              script.actions.forEach(action => executeAction(action, originalObj2));
+                              script.actions.forEach(action => executeAction(action, originalObj2, true));
                           }
                       });
                   }
@@ -926,6 +1066,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
       }
 
       evaluateEvents();
+      frameKeyPresses.current = [];
       frameCollisions.current = [];
       frameClicks.current = [];
       frameTimerEvents.current = [];
@@ -938,29 +1079,40 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
             return;
         }
 
-        const elapsed = now - activeAnim.startTime;
-        let totalDuration = 0;
-        let currentFrameIndex = 0;
-        for (let i = 0; i < activeAnim.animation.frames.length; i++) {
-            const frameDuration = activeAnim.animation.frames[i].duration;
-            if (elapsed >= totalDuration && elapsed < totalDuration + frameDuration) {
-                currentFrameIndex = i;
-                break;
-            }
-            totalDuration += frameDuration;
+        const totalDuration = activeAnim.animation.frames.reduce((sum, f) => sum + f.duration, 0);
+        if (totalDuration <= 0) {
+            activeAnimations.current.delete(objId);
+            return;
         }
+
+        const elapsed = now - activeAnim.startTime;
 
         if (elapsed >= totalDuration) {
             if (activeAnim.animation.loop) {
                 activeAnim.startTime = now;
-                currentFrameIndex = 0;
             } else {
                 activeAnimations.current.delete(objId);
                 const originalObject = scene.gameObjects.find(o => o.id === objId);
                 if (originalObject) {
                     obj.imageUrl = originalObject.imageUrl;
+                    obj.animOffsetX = 0;
+                    obj.animOffsetY = 0;
+                    obj.animRotation = 0;
+                    obj.animScaleX = 1;
+                    obj.animScaleY = 1;
                 }
                 return;
+            }
+        }
+
+        const currentElapsed = (now - activeAnim.startTime) % totalDuration;
+        let cumulativeTime = 0;
+        let currentFrameIndex = 0;
+        for (let i = 0; i < activeAnim.animation.frames.length; i++) {
+            cumulativeTime += activeAnim.animation.frames[i].duration;
+            if (currentElapsed < cumulativeTime) {
+                currentFrameIndex = i;
+                break;
             }
         }
         
@@ -968,12 +1120,19 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
         if (frame) {
             const asset = assets.find(a => a.id === frame.assetId);
             if (asset) obj.imageUrl = asset.url;
+            obj.animOffsetX = frame.x || 0;
+            obj.animOffsetY = frame.y || 0;
+            obj.animRotation = frame.rotation || 0;
+            obj.animScaleX = frame.scaleX ?? 1;
+            obj.animScaleY = frame.scaleY ?? 1;
         }
       });
       
       const currentUiObjects = gameObjectsRef.current.filter(o => o.isUI);
-      if(JSON.stringify(uiObjects) !== JSON.stringify(currentUiObjects)) {
-          setUiObjects(currentUiObjects);
+      if (currentUiObjects.length > 0) {
+          setUiObjects([...currentUiObjects]);
+      } else if (uiObjects.length > 0) {
+          setUiObjects([]);
       }
       
       const followTarget = gameObjectsRef.current.find(o => o.behaviors?.some(b => b.name === 'FollowCamera'));
@@ -1040,15 +1199,13 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
             }
         } else {
             ctx.save();
-            const scaledWidth = obj.width * Math.abs(obj.scaleX ?? 1);
-            const scaledHeight = obj.height * Math.abs(obj.scaleY ?? 1);
             const centerX = obj.x + obj.width / 2;
             const centerY = obj.y + obj.height / 2;
             
-            ctx.translate(centerX, centerY);
-            ctx.rotate((obj.rotation || 0) * Math.PI / 180);
-            const scaleX = (obj.scaleX ?? 1) * (obj.direction === 'left' ? -1 : 1);
-            const scaleY = obj.scaleY ?? 1;
+            ctx.translate(centerX + (obj.animOffsetX || 0), centerY + (obj.animOffsetY || 0));
+            ctx.rotate(((obj.rotation || 0) + (obj.animRotation || 0)) * Math.PI / 180);
+            const scaleX = (obj.scaleX ?? 1) * (obj.animScaleX ?? 1) * (obj.direction === 'left' ? -1 : 1);
+            const scaleY = (obj.scaleY ?? 1) * (obj.animScaleY ?? 1);
             ctx.scale(scaleX, scaleY);
             
             const drawX = -obj.width / 2;
@@ -1071,6 +1228,9 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                 const img = imageCache.current.get(obj.imageUrl);
                 if (img && img.complete) {
                     ctx.drawImage(img, drawX, drawY, obj.width, obj.height);
+                } else if (obj.color && obj.color !== 'transparent') {
+                    ctx.fillStyle = obj.color;
+                    ctx.fillRect(drawX, drawY, obj.width, obj.height);
                 }
             } else if (obj.color !== 'transparent') {
                 ctx.fillStyle = obj.color;
@@ -1139,7 +1299,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
   const renderUIText = (text: string) => {
       let newText = text;
       for (const key in gameVariables.current) {
-          newText = newText.replace(`{${key}}`, String(gameVariables.current[key]));
+          newText = newText.replace(new RegExp(`\\{${key}\\}`, 'g'), String(gameVariables.current[key]));
       }
       return newText;
   }
@@ -1189,7 +1349,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
         frameClicks.current.push(clickedObject.name);
          clickedObject.scripts?.forEach(script => {
             if (script.trigger === 'OnClick') {
-                script.actions.forEach(action => executeAction(action, clickedObject));
+                script.actions.forEach(action => executeAction(action, clickedObject, true));
             }
         });
     }
@@ -1283,12 +1443,12 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
             {uiObjects.map(obj => {
                 const isControlButton = !!obj.controlAction && obj.controlAction !== 'none';
                 
-                const scaleX = (obj.scaleX ?? 1) * (obj.direction === 'left' ? -1 : 1);
-                const scaleY = obj.scaleY ?? 1;
+                const scaleX = (obj.scaleX ?? 1) * (obj.animScaleX ?? 1) * (obj.direction === 'left' ? -1 : 1);
+                const scaleY = (obj.scaleY ?? 1) * (obj.animScaleY ?? 1);
 
                 const style: React.CSSProperties = {
                     position: 'absolute',
-                    left: obj.x, top: obj.y,
+                    left: obj.x + (obj.animOffsetX || 0), top: obj.y + (obj.animOffsetY || 0),
                     width: obj.width, height: obj.height,
                     color: obj.color,
                     zIndex: obj.zIndex,
@@ -1305,7 +1465,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                     backgroundColor: isControlButton ? 'rgba(0,0,0,0.4)' : (obj.color !== 'transparent' && !obj.imageUrl ? obj.color : 'transparent'),
                     userSelect: 'none',
                     transformOrigin: 'center',
-                    transform: `rotate(${obj.rotation || 0}deg) scale(${scaleX}, ${scaleY})`,
+                    transform: `rotate(${(obj.rotation || 0) + (obj.animRotation || 0)}deg) scale(${scaleX}, ${scaleY})`,
                 };
                 
                 const handlePress = (e: React.MouseEvent | React.TouchEvent) => { 

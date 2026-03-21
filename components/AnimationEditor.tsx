@@ -34,6 +34,11 @@ const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, anim
     }
 
     const currentFrameData = selectedAnimation.frames[previewFrame];
+    if (!currentFrameData) {
+        setPreviewFrame(0);
+        return;
+    }
+
     const nextFrameIndex = (previewFrame + 1) % selectedAnimation.frames.length;
 
     const timeoutId = setTimeout(() => {
@@ -72,7 +77,15 @@ const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, anim
   
   const addFrame = (assetId: string) => {
       if (!selectedAnimation) return;
-      const newFrame: AnimationKeyframe = { assetId, duration: 100 };
+      const newFrame: AnimationKeyframe = { 
+        assetId, 
+        duration: 100,
+        x: 0,
+        y: 0,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1
+      };
       updateSelectedAnimation({ frames: [...selectedAnimation.frames, newFrame] });
   };
   
@@ -115,12 +128,26 @@ const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, anim
       onClose();
   };
 
-  const getFrameUrl = (frameIndex: number): string => {
-    if (!selectedAnimation || selectedAnimation.frames.length === 0) return '';
+  const getFrameData = (frameIndex: number) => {
+    if (!selectedAnimation || selectedAnimation.frames.length === 0) return null;
     const frameCount = selectedAnimation.frames.length;
     const safeIndex = (frameIndex % frameCount + frameCount) % frameCount;
-    const assetId = selectedAnimation.frames[safeIndex]?.assetId;
-    return assets.find(a => a.id === assetId)?.url ?? '';
+    return selectedAnimation.frames[safeIndex];
+  };
+
+  const getFrameUrl = (frameIndex: number): string => {
+    const frame = getFrameData(frameIndex);
+    if (!frame) return '';
+    return assets.find(a => a.id === frame.assetId)?.url ?? '';
+  };
+
+  const getFrameStyle = (frameIndex: number): React.CSSProperties => {
+    const frame = getFrameData(frameIndex);
+    if (!frame) return {};
+    
+    return {
+      transform: `translate(${frame.x || 0}px, ${frame.y || 0}px) rotate(${frame.rotation || 0}deg) scale(${frame.scaleX ?? 1}, ${frame.scaleY ?? 1})`,
+    };
   };
 
   return (
@@ -149,13 +176,13 @@ const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, anim
                 <div className="h-2/3 bg-black/50 rounded-lg flex items-center justify-center relative overflow-hidden" style={{ backgroundSize: '20px 20px', backgroundImage: 'radial-gradient(circle, #374151 1px, rgba(0,0,0,0) 1px)' }}>
                    {/* Onion Skin Layers */}
                    {onionSkin.enabled && Array.from({ length: onionSkin.pastFrames }, (_, i) => i + 1).reverse().map(i => (
-                       <img key={`past-${i}`} src={getFrameUrl(previewFrame - i)} className="absolute max-w-full max-h-full object-contain opacity-20" />
+                       <img key={`past-${i}`} src={getFrameUrl(previewFrame - i)} style={getFrameStyle(previewFrame - i)} className="absolute max-w-full max-h-full object-contain opacity-20" />
                    ))}
                    {onionSkin.enabled && Array.from({ length: onionSkin.futureFrames }, (_, i) => i + 1).map(i => (
-                       <img key={`future-${i}`} src={getFrameUrl(previewFrame + i)} className="absolute max-w-full max-h-full object-contain opacity-20" />
+                       <img key={`future-${i}`} src={getFrameUrl(previewFrame + i)} style={getFrameStyle(previewFrame + i)} className="absolute max-w-full max-h-full object-contain opacity-20" />
                    ))}
                    {/* Current Frame */}
-                   <img src={getFrameUrl(previewFrame)} alt="Preview" className="relative max-w-full max-h-full object-contain" />
+                   <img src={getFrameUrl(previewFrame)} style={getFrameStyle(previewFrame)} alt="Preview" className="relative max-w-full max-h-full object-contain" />
 
                    <div className="absolute bottom-2 left-2 flex gap-2">
                         <button onClick={() => setIsPlaying(!isPlaying)} className="p-2 bg-gray-800 rounded-md hover:bg-indigo-600">{isPlaying ? 'Pausa' : 'Reproducir'}</button>
@@ -182,6 +209,32 @@ const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, anim
                      </div>
                      <div>
                          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selectedAnimation.loop} onChange={e => updateSelectedAnimation({ loop: e.target.checked })} /> Bucle</label>
+                     </div>
+                     <div className="border-t border-gray-800 pt-2 space-y-2">
+                         <h4 className="text-sm font-semibold">Transformación del Frame</h4>
+                         {selectedAnimation.frames[previewFrame] ? (
+                             <div className="grid grid-cols-2 gap-2 text-xs">
+                                 <div>
+                                     <label>Pos X</label>
+                                     <input type="number" value={selectedAnimation.frames[previewFrame].x || 0} onChange={e => updateFrame(previewFrame, { x: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 p-1 rounded-md" />
+                                 </div>
+                                 <div>
+                                     <label>Pos Y</label>
+                                     <input type="number" value={selectedAnimation.frames[previewFrame].y || 0} onChange={e => updateFrame(previewFrame, { y: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 p-1 rounded-md" />
+                                 </div>
+                                 <div>
+                                     <label>Rotación</label>
+                                     <input type="number" value={selectedAnimation.frames[previewFrame].rotation || 0} onChange={e => updateFrame(previewFrame, { rotation: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 p-1 rounded-md" />
+                                 </div>
+                                 <div>
+                                     <label>Escala</label>
+                                     <div className="flex gap-1">
+                                         <input type="number" step="0.1" value={selectedAnimation.frames[previewFrame].scaleX ?? 1} onChange={e => updateFrame(previewFrame, { scaleX: parseFloat(e.target.value) || 1 })} className="w-full bg-gray-800 p-1 rounded-md" placeholder="X" />
+                                         <input type="number" step="0.1" value={selectedAnimation.frames[previewFrame].scaleY ?? 1} onChange={e => updateFrame(previewFrame, { scaleY: parseFloat(e.target.value) || 1 })} className="w-full bg-gray-800 p-1 rounded-md" placeholder="Y" />
+                                     </div>
+                                 </div>
+                             </div>
+                         ) : <p className="text-xs text-gray-500 italic">Añade frames para editar transformaciones.</p>}
                      </div>
                      <div className="border-t border-gray-800 pt-2 space-y-2">
                          <h4 className="text-sm font-semibold">Onion Skinning</h4>

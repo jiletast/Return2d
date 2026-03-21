@@ -120,15 +120,30 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             });
         };
         
-        const executeAction = (action, self) => {
+        const executeAction = (action, self, forceRestart = false) => {
+            let params = action.params;
+            if (typeof params === 'string') {
+                try {
+                    params = JSON.parse(params);
+                } catch (e) {
+                    // Silently fail if parsing fails
+                }
+            }
+            action.params = params;
+
             let targetObj;
             if (action.object === 'Self' && self) {
                 targetObj = gameObjects.find(o => o.id === self.id);
             } else {
-                targetObj = gameObjects.find(o => o.name === action.object);
+                targetObj = gameObjects.find(o => o.name === action.object) || gameObjects.find(o => o.id === action.object);
             }
 
-            if (!targetObj && action.object !== 'System') return;
+            console.log('executeAction', action.action, 'targetObj:', targetObj?.name, 'action.object:', action.object, 'params:', action.params);
+
+            if (!targetObj && action.object !== 'System') {
+                console.log('executeAction: targetObj not found for', action.object);
+                return;
+            }
 
             switch (action.action) {
                 case 'Destroy':
@@ -166,8 +181,14 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     break;
                 case 'PlayAnimation':
                     if (targetObj && action.params?.animationId) {
-                        const anim = animations.find(a => a.id === action.params.animationId);
-                        if (anim) activeAnimations.set(targetObj.id, { animation: anim, startTime: performance.now() });
+                        const animId = String(action.params.animationId);
+                        const anim = animations.find(a => a.id === animId);
+                        if (anim) {
+                            const currentAnim = activeAnimations.get(targetObj.id);
+                            if (forceRestart || !currentAnim || currentAnim.animation.id !== anim.id) {
+                                activeAnimations.set(targetObj.id, { animation: anim, startTime: performance.now() });
+                            }
+                        }
                     }
                     break;
                 case 'SetUIText':
@@ -188,6 +209,55 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                         targetObj.pendingMovements.push({ direction: action.params.direction, speed });
                     }
                     break;
+                case 'SetVelocityX':
+                    if (targetObj && action.params?.velocity != null) {
+                        targetObj.vx = Number(action.params.velocity);
+                    }
+                    break;
+                case 'SetVelocityY':
+                    if (targetObj && action.params?.velocity != null) {
+                        targetObj.vy = Number(action.params.velocity);
+                    }
+                    break;
+                case 'SetRotationSpeed':
+                    if (targetObj && action.params?.speed != null) {
+                        targetObj.rotationSpeed = Number(action.params.speed);
+                    }
+                    break;
+                case 'OscillateObject':
+                    if (targetObj && action.params?.axis && action.params?.distance != null && action.params?.speed != null) {
+                        const distance = Number(action.params.distance);
+                        const speed = Number(action.params.speed);
+                        targetObj.oscillation = {
+                            axis: action.params.axis,
+                            distance,
+                            speed,
+                            initialX: targetObj.initialX ?? targetObj.x,
+                            initialY: targetObj.initialY ?? targetObj.y,
+                            startTime: performance.now()
+                        };
+                        if (targetObj.initialX === undefined) targetObj.initialX = targetObj.x;
+                        if (targetObj.initialY === undefined) targetObj.initialY = targetObj.y;
+                    }
+                    break;
+                case 'OscillateScale':
+                    if (targetObj && action.params?.distance != null && action.params?.speed != null) {
+                        targetObj.scaleOscillation = {
+                            distance: Number(action.params.distance),
+                            speed: Number(action.params.speed),
+                            initialScaleX: targetObj.initialScaleX ?? (targetObj.scaleX || 1),
+                            initialScaleY: targetObj.initialScaleY ?? (targetObj.scaleY || 1),
+                            startTime: performance.now()
+                        };
+                        if (targetObj.initialScaleX === undefined) targetObj.initialScaleX = targetObj.scaleX || 1;
+                        if (targetObj.initialScaleY === undefined) targetObj.initialScaleY = targetObj.scaleY || 1;
+                    }
+                    break;
+                case 'RotateContinuously':
+                    if (targetObj && action.params?.speed != null) {
+                        targetObj.rotationSpeed = Number(action.params.speed);
+                    }
+                    break;
                 case 'ForceJump':
                     if (targetObj && targetObj.behaviors?.some(b => ['PlatformerCharacter', 'Physics'].includes(b.name)) && action.params?.jumpForce != null) {
                         targetObj.vy = -Number(action.params.jumpForce);
@@ -206,6 +276,42 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                         } else {
                             const parentObj = gameObjects.find(o => o.name === action.params.parentName);
                             if (parentObj) targetObj.parentId = parentObj.id;
+                        }
+                    }
+                    break;
+                case 'RotateObject':
+                    if (targetObj && action.params?.rotation != null) {
+                        const rotation = Number(action.params.rotation || 0);
+                        targetObj.rotation = ((targetObj.rotation || 0) + rotation) % 360;
+                        if (targetObj.rotation < 0) targetObj.rotation += 360;
+                    }
+                    break;
+                case 'ScaleObject':
+                    if (targetObj && action.params?.scaleX != null && action.params?.scaleY != null) {
+                        const scaleX = Number(action.params.scaleX || 1);
+                        const scaleY = Number(action.params.scaleY || 1);
+                        targetObj.scaleX = Math.max(0.01, (targetObj.scaleX ?? 1) * scaleX);
+                        targetObj.scaleY = Math.max(0.01, (targetObj.scaleY ?? 1) * scaleY);
+                    }
+                    break;
+                case 'SetScale':
+                    if (targetObj && action.params?.scaleX != null && action.params?.scaleY != null) {
+                        targetObj.scaleX = Math.max(0.01, Number(action.params.scaleX));
+                        targetObj.scaleY = Math.max(0.01, Number(action.params.scaleY));
+                    }
+                    break;
+                case 'GenerateObjectAt':
+                    if (action.params?.templateObjectName && action.params?.targetObjectName) {
+                        const templateObj = gameObjects.find(o => o.name === action.params.templateObjectName);
+                        const targetObj = gameObjects.find(o => o.name === action.params.targetObjectName);
+                        if (templateObj && targetObj) {
+                            const newObj = {
+                                ...JSON.parse(JSON.stringify(templateObj)),
+                                id: Date.now(),
+                                x: targetObj.x,
+                                y: targetObj.y
+                            };
+                            gameObjects.push(newObj);
                         }
                     }
                     break;
@@ -317,6 +423,9 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                         timers.delete(action.params.timerName);
                     }
                     break;
+                default:
+                    console.log('executeAction: Unknown action', action.action);
+                    break;
                 case 'CreateObject':
                     if (!action.params?.templateObjectName) break;
                     const template = currentScene.gameObjects.find(o => o.name === action.params.templateObjectName);
@@ -353,8 +462,8 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                         return c.type === cond.trigger;
                     });
                 case 'OnObjectClicked': return frameClicks.includes(cond.object);
-                case 'OnKeyPress': return cond.params?.key && keysPressed[cond.params.key.toLowerCase()];
-                case 'OnAnyKeyPress': return Object.values(keysPressed).some(v => v === true);
+                case 'OnKeyPress': return cond.params?.key && frameKeyPresses.includes(cond.params.key.toLowerCase());
+                case 'OnAnyKeyPress': return frameKeyPresses.length > 0;
                 case 'OnAttack': return frameAttacks.includes(cond.object);
                 case 'OnTimerElapsed': return frameTimerEvents.includes(cond.params?.timerName);
                 case 'CompareVariable': {
@@ -413,7 +522,10 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
              if (!currentScene) return;
              currentScene.events.forEach(event => {
                 if (event.conditions.some(c => c.trigger === 'OnStart' || c.trigger === 'EveryXSeconds')) return;
-                if (event.conditions.every(checkCondition)) event.actions.forEach(a => executeAction(a, null));
+                if (event.conditions.every(checkCondition)) {
+                    const isEventTrigger = event.conditions.some(c => ['OnClick', 'OnCollisionWith', 'OnKeyPress', 'OnAttack', 'OnTimerElapsed'].includes(c.trigger));
+                    event.actions.forEach(a => executeAction(a, null, isEventTrigger));
+                }
              });
         };
         
@@ -534,13 +646,50 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             } else { actionsPressed.attackPressed = false; actionsPressed.attackAction = false; }
 
             gameObjects.forEach(obj => {
-                if (obj.isUI) return;
-                obj.scripts?.forEach(s => s.trigger === 'OnUpdate' && s.actions.forEach(a => executeAction(a, obj)));
+                // Process scripts for all objects, including UI
+                obj.scripts?.forEach(s => {
+                    if (s.trigger === 'OnUpdate' || s.trigger === 'Always') {
+                        s.actions.forEach(a => executeAction(a, obj, false));
+                    } else if (!['OnStart', 'OnClick', 'OnCollisionWith', 'OnTimerElapsed'].includes(s.trigger)) {
+                        const mockCondition = {
+                            trigger: s.trigger,
+                            object: obj.name,
+                            params: s.params,
+                            target: s.params?.targetObjectName
+                        };
+                        if (checkCondition(mockCondition)) {
+                            s.actions.forEach(a => executeAction(a, obj, false));
+                        }
+                    }
+                });
+
+                if (obj.oscillation) {
+                    const time = (performance.now() - obj.oscillation.startTime) / 1000;
+                    const offset = Math.sin(time * obj.oscillation.speed) * obj.oscillation.distance;
+                    if (obj.oscillation.axis === 'x') {
+                        obj.x = obj.oscillation.initialX + offset;
+                    } else {
+                        obj.y = obj.oscillation.initialY + offset;
+                    }
+                }
+
+                if (obj.rotationSpeed) {
+                    obj.rotation = ((obj.rotation || 0) + obj.rotationSpeed * deltaTime) % 360;
+                    if (obj.rotation < 0) obj.rotation += 360;
+                }
+
+                if (obj.scaleOscillation) {
+                    const time = (performance.now() - obj.scaleOscillation.startTime) / 1000;
+                    const offset = Math.sin(time * obj.scaleOscillation.speed) * obj.scaleOscillation.distance;
+                    obj.scaleX = Math.max(0.01, obj.scaleOscillation.initialScaleX + offset);
+                    obj.scaleY = Math.max(0.01, obj.scaleOscillation.initialScaleY + offset);
+                }
 
                 if (obj.pendingMovements) {
                     obj.pendingMovements.forEach(move => {
-                        const speed = move.speed;
-                        switch (move.direction) {
+                        const speed = move.speed || 100; // Default speed if 0 or undefined
+                        const direction = (move.direction || '').toLowerCase();
+                        switch (direction) {
                             case 'right': obj.x += speed * deltaTime; break;
                             case 'left': obj.x -= speed * deltaTime; break;
                             case 'up': obj.y -= speed * deltaTime; break;
@@ -549,6 +698,9 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     });
                     obj.pendingMovements = [];
                 }
+
+                // Only process physics/movement for non-UI objects
+                if (obj.isUI) return;
 
                 const platformer = obj.behaviors?.find(b => b.name === 'PlatformerCharacter');
                 if (platformer) {
@@ -615,6 +767,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     let absPos = getObjectAbsolutePosition(obj.id, objectsById);
                     for (const solidShape of staticCollisionShapes) {
                         if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox({...obj, ...absPos}), solidShape)) {
+                            frameCollisions.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnHorizontalCollision' });
                             if (obj.vx > 0) obj.x = solidShape.x - getCollisionBox(obj).width - (absPos.x - obj.x); else if (obj.vx < 0) obj.x = solidShape.x + solidShape.width - (absPos.x - obj.x);
                             obj.vx = 0; break;
                         }
@@ -623,6 +776,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     absPos = getObjectAbsolutePosition(obj.id, objectsById);
                     for (const solidShape of staticCollisionShapes) {
                         if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox({...obj, ...absPos}), solidShape)) {
+                            frameCollisions.push({ obj1Name: obj.name, obj2Name: solidShape.owner.name, type: 'OnVerticalCollision' });
                             if (obj.vy > 0) obj.y = solidShape.y - getCollisionBox(obj).height - (absPos.y - obj.y); else if (obj.vy < 0) obj.y = solidShape.y + solidShape.height - (absPos.y - obj.y);
                             obj.vy = 0; break;
                         }
@@ -642,35 +796,59 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             }
             
             evaluateEvents();
+            frameKeyPresses = [];
             frameCollisions = []; frameClicks = []; frameTimerEvents = []; frameAttacks = [];
 
             activeAnimations.forEach((activeAnim, objId) => {
                 const obj = gameObjects.find(o => o.id === objId);
                 if (!obj) { activeAnimations.delete(objId); return; }
-                const elapsed = now - activeAnim.startTime;
-                let totalDuration = 0, currentFrameIndex = 0;
-                for (let i = 0; i < activeAnim.animation.frames.length; i++) {
-                    const frameDuration = activeAnim.animation.frames[i].duration;
-                    if (elapsed >= totalDuration && elapsed < totalDuration + frameDuration) { currentFrameIndex = i; break; }
-                    totalDuration += frameDuration;
+                
+                const totalDuration = activeAnim.animation.frames.reduce((sum, f) => sum + f.duration, 0);
+                if (totalDuration <= 0) {
+                    activeAnimations.delete(objId);
+                    return;
                 }
+
+                const elapsed = now - activeAnim.startTime;
+                
                 if (elapsed >= totalDuration) {
                     if (activeAnim.animation.loop) { 
                         activeAnim.startTime = now; 
-                        currentFrameIndex = 0; 
                     } else { 
                         activeAnimations.delete(objId); 
                         const originalObject = currentScene.gameObjects.find(o => o.id === objId);
                         if (originalObject) {
                             obj.imageUrl = originalObject.imageUrl;
+                            obj.animOffsetX = 0;
+                            obj.animOffsetY = 0;
+                            obj.animRotation = 0;
+                            obj.animScaleX = 1;
+                            obj.animScaleY = 1;
                         }
                         return; 
                     }
                 }
+
+                const currentElapsed = (now - activeAnim.startTime) % totalDuration;
+                let cumulativeTime = 0;
+                let currentFrameIndex = 0;
+                for (let i = 0; i < activeAnim.animation.frames.length; i++) {
+                    cumulativeTime += activeAnim.animation.frames[i].duration;
+                    if (currentElapsed < cumulativeTime) {
+                        currentFrameIndex = i;
+                        break;
+                    }
+                }
+
                 const frame = activeAnim.animation.frames[currentFrameIndex];
                 if (frame) {
                     const asset = assets.find(a => a.id === frame.assetId);
                     if (asset) obj.imageUrl = asset.url;
+                    obj.animOffsetX = frame.x || 0;
+                    obj.animOffsetY = frame.y || 0;
+                    obj.animRotation = frame.rotation || 0;
+                    obj.animScaleX = frame.scaleX ?? 1;
+                    obj.animScaleY = frame.scaleY ?? 1;
                 }
             });
             
@@ -747,10 +925,10 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             context.save();
             const centerX = isUI ? obj.x + obj.width/2 : obj.x + obj.width/2;
             const centerY = isUI ? obj.y + obj.height/2 : obj.y + obj.height/2;
-            context.translate(centerX, centerY);
-            context.rotate((obj.rotation || 0) * Math.PI / 180);
-            const scaleX = (obj.scaleX ?? 1) * (obj.direction === 'left' ? -1 : 1);
-            const scaleY = obj.scaleY ?? 1;
+            context.translate(centerX + (obj.animOffsetX || 0), centerY + (obj.animOffsetY || 0));
+            context.rotate(((obj.rotation || 0) + (obj.animRotation || 0)) * Math.PI / 180);
+            const scaleX = (obj.scaleX ?? 1) * (obj.animScaleX ?? 1) * (obj.direction === 'left' ? -1 : 1);
+            const scaleY = (obj.scaleY ?? 1) * (obj.animScaleY ?? 1);
             context.scale(scaleX, scaleY);
             const drawX = -obj.width/2, drawY = -obj.height/2;
 
@@ -863,9 +1041,16 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             }
         }
 
+        let frameKeyPresses = [];
         window.addEventListener('keydown', (e) => { 
-            keysPressed[e.code.toLowerCase()] = true; 
-            keysPressed[e.key.toLowerCase()] = true;
+            const key = e.key.toLowerCase();
+            const code = e.code.toLowerCase();
+            if (!keysPressed[key] && !keysPressed[code]) {
+                frameKeyPresses.push(key);
+                frameKeyPresses.push(code);
+            }
+            keysPressed[code] = true; 
+            keysPressed[key] = true;
         });
         window.addEventListener('keyup', (e) => { 
             keysPressed[e.code.toLowerCase()] = false; 
@@ -886,15 +1071,22 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             const worldMouseX = (mouseX / camera.zoom) + camera.x - (canvas.width / (2 * camera.zoom));
             const worldMouseY = (mouseY / camera.zoom) + camera.y - (canvas.height / (2 * camera.zoom));
             const clickedObject = [...gameObjects].sort((a,b)=>b.zIndex-a.zIndex).find(obj => {
-                if (obj.isUI) return false;
                 const absPos = getObjectAbsolutePosition(obj.id, objectsById);
                 const collisionBox = getCollisionBox({...obj, ...absPos});
+                
+                // For UI objects, use screen coordinates, not world coordinates
+                if (obj.isUI) {
+                    const absPos = getObjectAbsolutePosition(obj.id, objectsById);
+                    return mouseX >= absPos.x && mouseX <= absPos.x + obj.width &&
+                           mouseY >= absPos.y && mouseY <= absPos.y + obj.height;
+                }
+                
                 return worldMouseX >= collisionBox.x && worldMouseX <= collisionBox.x + collisionBox.width &&
                        worldMouseY >= collisionBox.y && worldMouseY <= collisionBox.y + collisionBox.height;
             });
             if (clickedObject) {
                 frameClicks.push(clickedObject.name);
-                clickedObject.scripts?.forEach(s => s.trigger==='OnClick' && s.actions.forEach(a => executeAction(a, clickedObject)));
+                clickedObject.scripts?.forEach(s => s.trigger==='OnClick' && s.actions.forEach(a => executeAction(a, clickedObject, true)));
             }
         });
         
@@ -903,7 +1095,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             if (!uiContainer) return;
             uiContainer.innerHTML = '';
             
-            const uiControls = gameObjects.filter(o => o.isUI && o.controlAction && o.controlAction !== 'none');
+            const uiControls = gameObjects.filter(o => o.isUI);
             
             const scaleX = uiContainer.clientWidth / (window.projectData.gameWidth || 1024);
             const scaleY = uiContainer.clientHeight / (window.projectData.gameHeight || 768);
@@ -922,17 +1114,24 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                 button.style.backgroundPosition = 'center';
                 button.style.border = '2px solid rgba(255,255,255,0.3)';
                 button.style.borderRadius = '8px';
-                button.dataset.action = obj.controlAction;
+                button.dataset.action = obj.controlAction || 'none';
                 uiContainer.appendChild(button);
 
-                const handlePress = e => { e.preventDefault(); actionsPressed[obj.controlAction] = true; actionsPressed[obj.controlAction + '_ui'] = true; };
-                const handleRelease = e => { e.preventDefault(); actionsPressed[obj.controlAction] = false; actionsPressed[obj.controlAction + '_ui'] = false; };
+                if (obj.controlAction && obj.controlAction !== 'none') {
+                    const handlePress = e => { e.preventDefault(); actionsPressed[obj.controlAction] = true; actionsPressed[obj.controlAction + '_ui'] = true; };
+                    const handleRelease = e => { e.preventDefault(); actionsPressed[obj.controlAction] = false; actionsPressed[obj.controlAction + '_ui'] = false; };
 
-                button.addEventListener('mousedown', handlePress);
-                button.addEventListener('mouseup', handleRelease);
-                button.addEventListener('mouseleave', handleRelease);
-                button.addEventListener('touchstart', handlePress, { passive: false });
-                button.addEventListener('touchend', handleRelease, { passive: false });
+                    button.addEventListener('mousedown', handlePress);
+                    button.addEventListener('mouseup', handleRelease);
+                    button.addEventListener('mouseleave', handleRelease);
+                    button.addEventListener('touchstart', handlePress, { passive: false });
+                    button.addEventListener('touchend', handleRelease, { passive: false });
+                }
+
+                button.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    obj.scripts?.forEach(s => s.trigger === 'OnClick' && s.actions.forEach(a => executeAction(a, obj)));
+                });
             });
             
             if (window.projectData.joystick?.enabled) {

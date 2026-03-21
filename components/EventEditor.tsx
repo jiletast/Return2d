@@ -87,7 +87,14 @@ const categorizedActionOptions: {
         { value: 'Destroy', label: 'Destruir Objeto' },
         { value: 'CreateObject', label: 'Crear Objeto' },
         { value: 'SetObjectPosition', label: 'Establecer Posición', needsParams: ['x', 'y']},
-        { value: 'MoveObject', label: 'Mover Objeto (Continuo)', needsParams: ['direction', 'speed'] },
+        { value: 'MoveObject', label: 'Mover en una Dirección', needsParams: ['direction', 'speed'] },
+        { value: 'OscillateObject', label: 'Oscilar (Movimiento Va y Viene)', needsParams: ['axis', 'distance', 'speed'] },
+        { value: 'OscillateScale', label: 'Oscilar Tamaño (Latido)', needsParams: ['distance', 'speed'] },
+        { value: 'RotateContinuously', label: 'Rotar Continuamente (Hélice)', needsParams: ['speed'] },
+        { value: 'RotateObject', label: 'Rotar (Girar)', needsParams: ['rotation'] },
+        { value: 'ScaleObject', label: 'Escalar (Multiplicar Tamaño)', needsParams: ['scaleX', 'scaleY'] },
+        { value: 'SetScale', label: 'Establecer Escala (Tamaño Fijo)', needsParams: ['scaleX', 'scaleY'] },
+        { value: 'GenerateObjectAt', label: 'Generar Objeto en Posición de Otro', needsParams: ['templateObjectName', 'targetObjectName'] },
         { value: 'ForceJump', label: 'Forzar Salto', needsParams: ['jumpForce'] },
         { value: 'TriggerAttack', label: 'Activar Ataque' },
         { value: 'SetParent', label: 'Unir Objeto a (Establecer Padre)', needsParams: ['parentName'] },
@@ -288,7 +295,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
         return <div key="create-obj-params" className="w-full bg-gray-700/50 p-2 rounded-md mt-1 space-y-2">
             <select className="input-field w-full" value={item.params?.templateObjectName ?? ''} onChange={e => updateParams({templateObjectName: e.target.value})}>
                 <option value="">Seleccionar Plantilla de Objeto</option>
-                {objectNames.map(name => <option key={name} value={name}>{name}</option>)}
+                {objectNames.map((name, index) => <option key={`${name}-${index}`} value={name}>{name}</option>)}
             </select>
             <div className="flex gap-4 text-sm">
                 <label><input type="radio" value="absolute" checked={positionType === 'absolute'} onChange={() => updateParams({positionType: 'absolute'})} /> Posición Absoluta</label>
@@ -303,7 +310,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
                 <div className="space-y-2">
                     <select className="input-field w-full" value={item.params?.relativeToObjectName ?? ''} onChange={e => updateParams({relativeToObjectName: e.target.value})}>
                         <option value="">Seleccionar Objeto Relativo</option>
-                        {objectNames.map(name => <option key={name} value={name}>{name}</option>)}
+                        {objectNames.map((name, index) => <option key={`${name}-${index}`} value={name}>{name}</option>)}
                     </select>
                     <div className="flex gap-2">
                         <input type="number" placeholder="Offset X" className="input-field w-1/2" value={item.params?.offsetX ?? ''} onChange={e => updateParams({offsetX: e.target.value})} />
@@ -332,7 +339,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
                 if (key === 'CompareVariable' || key === 'AddToVariable' || key === 'SetVariable') {
                     return ( <select key={param} className="input-field" value={item.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
                         <option value="">Variable Global</option>
-                        {globalVariableNames.map(name => <option key={name} value={name}>{name}</option>)}
+                        {globalVariableNames.map((name, index) => <option key={`${name}-${index}`} value={name}>{name}</option>)}
                     </select>);
                 }
                 return <input key={param} type="text" placeholder="Nombre Variable" className="input-field" value={item.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})} />;
@@ -348,7 +355,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
             case 'sceneName':
                 return ( <select key={param} className="input-field" value={item.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
                     <option value="">Seleccionar Escena</option>
-                    {sceneNames.map(name => <option key={name} value={name}>{name}</option>)}
+                    {sceneNames.map((name, index) => <option key={`${name}-${index}`} value={name}>{name}</option>)}
                 </select>);
             case 'key':
                 return (
@@ -376,11 +383,16 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
                     {objectNames.map(name => <option key={name} value={name}>{name}</option>)}
                 </select>);
             case 'direction':
-                return ( <select key={param} className="input-field" value={item.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
+                return ( <select key={param} className="input-field" value={item.params?.[param] ?? 'right'} onChange={e => updateParams({[param]: e.target.value})}>
                     <option value="right">Derecha</option>
                     <option value="left">Izquierda</option>
                     <option value="up">Arriba</option>
                     <option value="down">Abajo</option>
+                </select>);
+            case 'axis':
+                return ( <select key={param} className="input-field" value={item.params?.[param] ?? 'x'} onChange={e => updateParams({[param]: e.target.value})}>
+                    <option value="x">Horizontal (X)</option>
+                    <option value="y">Vertical (Y)</option>
                 </select>);
             case 'color':
                 return <input key={param} type="color" className="input-field h-8" value={item.params?.[param] ?? '#000000'} onChange={e => updateParams({[param]: e.target.value})} />;
@@ -390,10 +402,20 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
             case 'slot':
             case 'zoomLevel':
             case 'speed':
+            case 'distance':
             case 'jumpForce':
             case 'duration':
             case 'interval':
+            case 'rotation':
+            case 'scaleX':
+            case 'scaleY':
                 return <input key={param} type="number" placeholder={param} className="input-field w-20" value={item.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})} />;
+            case 'templateObjectName':
+            case 'targetObjectName':
+                return ( <select key={param} className="input-field" value={item.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
+                    <option value="">Seleccionar Objeto</option>
+                    {objectNames.map((name, index) => <option key={`${name}-${index}`} value={name}>{name}</option>)}
+                </select>);
             case 'volume':
                 return <input key={param} type="number" placeholder="Volumen (0-100)" className="input-field" min="0" max="100" value={item.params?.[param] ?? '100'} onChange={e => updateParams({[param]: e.target.value})} />;
             case 'dialogueText':
@@ -516,7 +538,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
                                 <div key={i} className="flex gap-1 items-start flex-wrap p-2 bg-gray-800/50 rounded-md">
                                     <select className="input-field" value={cond.object ?? ''} onChange={e => updateCondition(i, { object: e.target.value })}>
                                         <option value="">Seleccionar Objeto</option>
-                                        {['System', ...objectNames].map(name => <option key={name} value={name}>{name}</option>)}
+                                        {['System', ...objectNames].map((name, index) => <option key={`${name}-${index}`} value={name}>{name}</option>)}
                                     </select>
                                     <button onClick={() => setSelectorOpen({type: 'condition', index: i})} className="input-field text-left flex-grow min-w-[120px] hover:bg-gray-600">
                                         {triggerOptions.find(opt => opt.value === cond.trigger)?.label || 'Seleccionar Disparador'}
@@ -524,7 +546,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
                                     {triggerOptions.find(o => o.value === cond.trigger)?.needsTarget && 
                                       <select className="input-field" value={cond.target ?? ''} onChange={e => updateCondition(i, { target: e.target.value })}>
                                         <option value="">Seleccionar Objetivo</option>
-                                        {objectNames.map(name => <option key={name} value={name}>{name}</option>)}
+                                        {objectNames.map((name, index) => <option key={`${name}-${index}`} value={name}>{name}</option>)}
                                       </select>}
                                     {renderParamInput('condition', cond, i)}
                                 </div>
@@ -536,7 +558,7 @@ const EventEditor: React.FC<EventEditorProps> = ({ onClose, onAddEvent, onDelete
                                 <div key={i} className="flex gap-1 items-start flex-wrap p-2 bg-gray-800/50 rounded-md">
                                     <select className="input-field" value={act.object ?? ''} onChange={e => updateAction(i, { object: e.target.value })}>
                                         <option value="">Seleccionar Objeto</option>
-                                        {['System', ...objectNames].map(name => <option key={name} value={name}>{name}</option>)}
+                                        {['System', ...objectNames].map((name, index) => <option key={`${name}-${index}`} value={name}>{name}</option>)}
                                     </select>
                                     <button onClick={() => setSelectorOpen({type: 'action', index: i})} className="input-field text-left flex-grow min-w-[120px] hover:bg-gray-600">
                                         {actionOptions.find(opt => opt.value === act.action)?.label || 'Seleccionar Acción'}
