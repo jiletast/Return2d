@@ -42,32 +42,47 @@ const getObjectAbsolutePosition = (objectId: number, objectsById: Map<number, Ga
 };
 
 const getCollisionBox = (objWithAbsPos: GameObject & {x: number, y: number}): {x: number, y: number, width: number, height: number} => {
-    const scaleX = Math.abs(objWithAbsPos.scaleX ?? 1);
-    const scaleY = Math.abs(objWithAbsPos.scaleY ?? 1);
+    const scaleX = Math.abs((objWithAbsPos.scaleX ?? 1) * (objWithAbsPos.animScaleX ?? 1));
+    const scaleY = Math.abs((objWithAbsPos.scaleY ?? 1) * (objWithAbsPos.animScaleY ?? 1));
     
-    // Calculate the top-left corner of the object as if it were scaled from its center
-    const scaledVisualWidth = objWithAbsPos.width * scaleX;
-    const scaledVisualHeight = objWithAbsPos.height * scaleY;
-    const visualX = objWithAbsPos.x + (objWithAbsPos.width - scaledVisualWidth) / 2;
-    const visualY = objWithAbsPos.y + (objWithAbsPos.height - scaledVisualHeight) / 2;
+    const offsetX = objWithAbsPos.animOffsetX ?? 0;
+    const offsetY = objWithAbsPos.animOffsetY ?? 0;
+    const rotation = ((objWithAbsPos.rotation || 0) + (objWithAbsPos.animRotation || 0)) * Math.PI / 180;
+
+    // Base dimensions and center
+    let w = objWithAbsPos.width * scaleX;
+    let h = objWithAbsPos.height * scaleY;
+    let cx = objWithAbsPos.x + offsetX + objWithAbsPos.width / 2;
+    let cy = objWithAbsPos.y + offsetY + objWithAbsPos.height / 2;
 
     if (objWithAbsPos.useCustomCollision && objWithAbsPos.collision) {
-        // If there's a custom collision box, scale it and position it relative to the scaled visual bounds
-        const scaledCollisionWidth = objWithAbsPos.collision.width * scaleX;
-        const scaledCollisionHeight = objWithAbsPos.collision.height * scaleY;
-        const scaledOffsetX = objWithAbsPos.collision.offsetX * scaleX;
-        const scaledOffsetY = objWithAbsPos.collision.offsetY * scaleY;
+        w = objWithAbsPos.collision.width * scaleX;
+        h = objWithAbsPos.collision.height * scaleY;
+        cx = objWithAbsPos.x + offsetX + objWithAbsPos.width / 2 + (objWithAbsPos.collision.offsetX + objWithAbsPos.collision.width / 2 - objWithAbsPos.width / 2) * scaleX;
+        cy = objWithAbsPos.y + offsetY + objWithAbsPos.height / 2 + (objWithAbsPos.collision.offsetY + objWithAbsPos.collision.height / 2 - objWithAbsPos.height / 2) * scaleY;
+    }
 
+    if (rotation === 0) {
         return {
-            x: visualX + scaledOffsetX,
-            y: visualY + scaledOffsetY,
-            width: scaledCollisionWidth,
-            height: scaledCollisionHeight,
+            x: cx - w / 2,
+            y: cy - h / 2,
+            width: w,
+            height: h
         };
     }
 
-    // Otherwise, use the scaled visual bounds as the collision box
-    return { x: visualX, y: visualY, width: scaledVisualWidth, height: scaledVisualHeight };
+    // Calculate AABB of rotated rectangle
+    const cos = Math.abs(Math.cos(rotation));
+    const sin = Math.abs(Math.sin(rotation));
+    const newW = w * cos + h * sin;
+    const newH = w * sin + h * cos;
+
+    return {
+        x: cx - newW / 2,
+        y: cy - newH / 2,
+        width: newW,
+        height: newH
+    };
 };
 
 
@@ -195,6 +210,16 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
           case 'SetRotationSpeed':
                 if (targetObj && action.params?.speed != null) {
                     targetObj.rotationSpeed = Number(action.params.speed);
+                }
+                break;
+          case 'SetScaleSpeedX':
+                if (targetObj && action.params?.speed != null) {
+                    targetObj.scaleSpeedX = Number(action.params.speed);
+                }
+                break;
+          case 'SetScaleSpeedY':
+                if (targetObj && action.params?.speed != null) {
+                    targetObj.scaleSpeedY = Number(action.params.speed);
                 }
                 break;
             case 'OscillateObject':
@@ -658,23 +683,6 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
         }
     }
 
-    // Handle OnStart events separately on load, only if it's not a resumed state
-    if (!initialState) {
-        scene.events.forEach(event => {
-            const isAllOnStart = event.conditions.every(c => c.trigger === 'OnStart');
-            if (isAllOnStart) {
-                event.actions.forEach(action => executeAction(action, undefined));
-            }
-        });
-        gameObjectsRef.current.forEach(obj => {
-            obj.scripts?.forEach(script => {
-                if (script.trigger === 'OnStart') {
-                    script.actions.forEach(action => executeAction(action, obj));
-                }
-            });
-        });
-    }
-
     const handleKeyDown = (e: KeyboardEvent) => { 
         const key = e.key.toLowerCase();
         const code = e.code.toLowerCase();
@@ -895,6 +903,13 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
               const offset = Math.sin(time * obj.scaleOscillation.speed) * obj.scaleOscillation.distance;
               obj.scaleX = Math.max(0.01, obj.scaleOscillation.initialScaleX + offset);
               obj.scaleY = Math.max(0.01, obj.scaleOscillation.initialScaleY + offset);
+          } else {
+              if (obj.scaleSpeedX) {
+                  obj.scaleX = Math.max(0.01, (obj.scaleX ?? 1) + obj.scaleSpeedX * deltaTime);
+              }
+              if (obj.scaleSpeedY) {
+                  obj.scaleY = Math.max(0.01, (obj.scaleY ?? 1) + obj.scaleSpeedY * deltaTime);
+              }
           }
 
           if (obj.pendingMovements) {
@@ -911,7 +926,11 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
               obj.pendingMovements = [];
           }
 
-          if(obj.isUI) return;
+          if(obj.isUI) {
+              obj.x += (obj.vx || 0) * deltaTime;
+              obj.y += (obj.vy || 0) * deltaTime;
+              return;
+          }
 
           const hasRPGMovement = obj.behaviors?.some(b => b.name === 'TopDownRPGMovement');
           const platformer = obj.behaviors?.find(b => b.name === 'PlatformerCharacter');
@@ -920,8 +939,8 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
 
               obj.vx = (actions.moveHorizontalIntensity || 0) * speed;
               
-              if (obj.vx > 0) obj.direction = 'right';
-              if (obj.vx < 0) obj.direction = 'left';
+              if ((obj.vx || 0) > 0) obj.direction = 'right';
+              if ((obj.vx || 0) < 0) obj.direction = 'left';
 
               if (actions.jumpAction && obj.grounded) {
                   obj.vy = -jumpForce;
@@ -934,8 +953,6 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
           const rpgMovement = obj.behaviors?.find(b => b.name === 'TopDownRPGMovement');
           if (rpgMovement) {
               const { speed } = rpgMovement.properties;
-              obj.vx = 0;
-              obj.vy = 0;
               
               if (joystickState.current.active) {
                   const joystickSize = joystick?.size ?? 120;
@@ -950,6 +967,8 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                       obj.direction = 'right';
                   }
               } else {
+                  obj.vx = 0;
+                  obj.vy = 0;
                   if (actions.moveLeft) { obj.vx = -speed; obj.direction = 'left'; }
                   if (actions.moveRight) { obj.vx = speed; obj.direction = 'right'; }
                   if (actions.moveUp) obj.vy = -speed;
@@ -1011,7 +1030,7 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
               obj.grounded = false;
               const { gravity } = physics.properties;
               obj.vy! += gravity * deltaTime;
-              obj.y += obj.vy! * deltaTime;
+              obj.y += (obj.vy || 0) * deltaTime;
               currentAbsPos = getObjectAbsolutePosition(obj.id, objectsById);
               const newObjWithAbsPos = {...obj, ...currentAbsPos};
 
@@ -1029,6 +1048,10 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
                       break;
                   }
               }
+          } else {
+              // No specific movement behavior, just apply velocity
+              obj.x += (obj.vx || 0) * deltaTime;
+              obj.y += (obj.vy || 0) * deltaTime;
           }
       });
 
@@ -1275,6 +1298,22 @@ const GameView: React.FC<GameViewProps> = ({ scene, allScenes, animations, asset
     }));
 
     Promise.allSettled([...imagePromises, ...audioPromises, ...videoPromises]).then(() => {
+        // Handle OnStart events separately on load, only if it's not a resumed state
+        if (!initialState) {
+            scene.events.forEach(event => {
+                const isAllOnStart = event.conditions.every(c => c.trigger === 'OnStart');
+                if (isAllOnStart) {
+                    event.actions.forEach(action => executeAction(action, undefined));
+                }
+            });
+            gameObjectsRef.current.forEach(obj => {
+                obj.scripts?.forEach(script => {
+                    if (script.trigger === 'OnStart') {
+                        script.actions.forEach(action => executeAction(action, obj));
+                    }
+                });
+            });
+        }
         animationFrameId = requestAnimationFrame(gameLoop);
     });
 

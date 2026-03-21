@@ -64,29 +64,47 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
         };
 
         const getCollisionBox = (objWithAbsPos) => {
-            const scaleX = Math.abs(objWithAbsPos.scaleX ?? 1);
-            const scaleY = Math.abs(objWithAbsPos.scaleY ?? 1);
+            const scaleX = Math.abs((objWithAbsPos.scaleX ?? 1) * (objWithAbsPos.animScaleX ?? 1));
+            const scaleY = Math.abs((objWithAbsPos.scaleY ?? 1) * (objWithAbsPos.animScaleY ?? 1));
             
-            const scaledVisualWidth = objWithAbsPos.width * scaleX;
-            const scaledVisualHeight = objWithAbsPos.height * scaleY;
-            const visualX = objWithAbsPos.x + (objWithAbsPos.width - scaledVisualWidth) / 2;
-            const visualY = objWithAbsPos.y + (objWithAbsPos.height - scaledVisualHeight) / 2;
+            const offsetX = objWithAbsPos.animOffsetX ?? 0;
+            const offsetY = objWithAbsPos.animOffsetY ?? 0;
+            const rotation = ((objWithAbsPos.rotation || 0) + (objWithAbsPos.animRotation || 0)) * Math.PI / 180;
+
+            // Base dimensions and center
+            let w = objWithAbsPos.width * scaleX;
+            let h = objWithAbsPos.height * scaleY;
+            let cx = objWithAbsPos.x + offsetX + objWithAbsPos.width / 2;
+            let cy = objWithAbsPos.y + offsetY + objWithAbsPos.height / 2;
 
             if (objWithAbsPos.useCustomCollision && objWithAbsPos.collision) {
-                const scaledCollisionWidth = objWithAbsPos.collision.width * scaleX;
-                const scaledCollisionHeight = objWithAbsPos.collision.height * scaleY;
-                const scaledOffsetX = objWithAbsPos.collision.offsetX * scaleX;
-                const scaledOffsetY = objWithAbsPos.collision.offsetY * scaleY;
+                w = objWithAbsPos.collision.width * scaleX;
+                h = objWithAbsPos.collision.height * scaleY;
+                cx = objWithAbsPos.x + offsetX + objWithAbsPos.width / 2 + (objWithAbsPos.collision.offsetX + objWithAbsPos.collision.width / 2 - objWithAbsPos.width / 2) * scaleX;
+                cy = objWithAbsPos.y + offsetY + objWithAbsPos.height / 2 + (objWithAbsPos.collision.offsetY + objWithAbsPos.collision.height / 2 - objWithAbsPos.height / 2) * scaleY;
+            }
 
+            if (rotation === 0) {
                 return {
-                    x: visualX + scaledOffsetX,
-                    y: visualY + scaledOffsetY,
-                    width: scaledCollisionWidth,
-                    height: scaledCollisionHeight,
+                    x: cx - w / 2,
+                    y: cy - h / 2,
+                    width: w,
+                    height: h
                 };
             }
 
-            return { x: visualX, y: visualY, width: scaledVisualWidth, height: scaledVisualHeight };
+            // Calculate AABB of rotated rectangle
+            const cos = Math.abs(Math.cos(rotation));
+            const sin = Math.abs(Math.sin(rotation));
+            const newW = w * cos + h * sin;
+            const newH = w * sin + h * cos;
+
+            return {
+                x: cx - newW / 2,
+                y: cy - newH / 2,
+                width: newW,
+                height: newH
+            };
         };
 
         const isColliding = (box1, box2) => {
@@ -222,6 +240,16 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                 case 'SetRotationSpeed':
                     if (targetObj && action.params?.speed != null) {
                         targetObj.rotationSpeed = Number(action.params.speed);
+                    }
+                    break;
+                case 'SetScaleSpeedX':
+                    if (targetObj && action.params?.speed != null) {
+                        targetObj.scaleSpeedX = Number(action.params.speed);
+                    }
+                    break;
+                case 'SetScaleSpeedY':
+                    if (targetObj && action.params?.speed != null) {
+                        targetObj.scaleSpeedY = Number(action.params.speed);
                     }
                     break;
                 case 'OscillateObject':
@@ -683,11 +711,18 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     const offset = Math.sin(time * obj.scaleOscillation.speed) * obj.scaleOscillation.distance;
                     obj.scaleX = Math.max(0.01, obj.scaleOscillation.initialScaleX + offset);
                     obj.scaleY = Math.max(0.01, obj.scaleOscillation.initialScaleY + offset);
+                } else {
+                    if (obj.scaleSpeedX) {
+                        obj.scaleX = Math.max(0.01, (obj.scaleX ?? 1) + obj.scaleSpeedX * deltaTime);
+                    }
+                    if (obj.scaleSpeedY) {
+                        obj.scaleY = Math.max(0.01, (obj.scaleY ?? 1) + obj.scaleSpeedY * deltaTime);
+                    }
                 }
 
                 if (obj.pendingMovements) {
                     obj.pendingMovements.forEach(move => {
-                        const speed = move.speed || 100; // Default speed if 0 or undefined
+                        const speed = Number(move.speed || 0);
                         const direction = (move.direction || '').toLowerCase();
                         switch (direction) {
                             case 'right': obj.x += speed * deltaTime; break;
@@ -699,15 +734,21 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     obj.pendingMovements = [];
                 }
 
-                // Only process physics/movement for non-UI objects
-                if (obj.isUI) return;
+                if (obj.isUI) {
+                    obj.x += (obj.vx || 0) * deltaTime;
+                    obj.y += (obj.vy || 0) * deltaTime;
+                    return;
+                }
 
                 const platformer = obj.behaviors?.find(b => b.name === 'PlatformerCharacter');
                 if (platformer) {
                     const { speed, jumpForce } = platformer.properties;
-                    obj.vx = 0;
-                    if (actionsPressed.moveLeft) { obj.vx = -speed; obj.direction = 'left'; }
-                    if (actionsPressed.moveRight) { obj.vx = speed; obj.direction = 'right'; }
+                    
+                    obj.vx = (actionsPressed.moveHorizontalIntensity || 0) * speed;
+                    
+                    if ((obj.vx || 0) > 0) obj.direction = 'right';
+                    if ((obj.vx || 0) < 0) obj.direction = 'left';
+                    
                     if (actionsPressed.jumpAction && obj.grounded) obj.vy = -jumpForce;
                     if (actionsPressed.attackAction) {
                         frameAttacks.push(obj.name);
@@ -716,7 +757,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                 const rpgMovement = obj.behaviors?.find(b => b.name === 'TopDownRPGMovement');
                 if (rpgMovement) {
                     const { speed } = rpgMovement.properties;
-                    obj.vx = 0; obj.vy = 0;
+                    
                     if (joystickState.active) {
                         const maxDistance = joystickSize / 2;
                         const intensity = joystickState.distance / maxDistance;
@@ -729,11 +770,16 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                             obj.direction = 'right';
                         }
                     } else {
+                        obj.vx = 0; obj.vy = 0;
                         if (actionsPressed.moveLeft) { obj.vx = -speed; obj.direction = 'left'; }
                         if (actionsPressed.moveRight) { obj.vx = speed; obj.direction = 'right'; }
                         if (actionsPressed.moveUp) obj.vy = -speed;
                         if (actionsPressed.moveDown) obj.vy = speed;
-                        if (obj.vx && obj.vy) { obj.vx /= Math.SQRT2; obj.vy /= Math.SQRT2; }
+                        
+                        if (obj.vx !== 0 && obj.vy !== 0) {
+                            obj.vx /= Math.SQRT2;
+                            obj.vy /= Math.SQRT2;
+                        }
                     }
                 }
 
@@ -752,7 +798,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     }
                     obj.grounded = false;
                     obj.vy += physics.properties.gravity * deltaTime;
-                    obj.y += obj.vy * deltaTime;
+                    obj.y += (obj.vy || 0) * deltaTime;
                     absPos = getObjectAbsolutePosition(obj.id, objectsById);
                     for (const solidShape of staticCollisionShapes) {
                         if (obj.id !== solidShape.owner.id && isColliding(getCollisionBox({...obj, ...absPos}), solidShape)) {
@@ -781,6 +827,9 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                             obj.vy = 0; break;
                         }
                     }
+                } else {
+                    obj.x += (obj.vx || 0) * deltaTime;
+                    obj.y += (obj.vy || 0) * deltaTime;
                 }
             });
 
