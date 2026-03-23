@@ -40,7 +40,31 @@ export const availableBehaviors: BehaviorDefinition[] = [
     description: 'Mueve el objeto de un lado a otro horizontalmente dentro de un rango establecido.',
     defaultProperties: {
       speed: 50,
-      patrolRange: 100,
+      range: 100,
+    },
+  },
+  {
+    name: 'Oscillate',
+    description: 'Hace que el objeto se mueva de un lado a otro en un eje (x o y) de forma fluida.',
+    defaultProperties: {
+      axis: 'x',
+      distance: 100,
+      speed: 2,
+    },
+  },
+  {
+    name: 'Rotate',
+    description: 'Hace que el objeto gire continuamente.',
+    defaultProperties: {
+      rotationSpeed: 90,
+    },
+  },
+  {
+    name: 'Pulse',
+    description: 'Hace que el objeto cambie de tamaño de forma pulsante.',
+    defaultProperties: {
+      distance: 0.2,
+      speed: 2,
     },
   },
   {

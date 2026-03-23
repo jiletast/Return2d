@@ -708,6 +708,51 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     }
                 }
 
+                // New Behaviors Implementation
+                const patrolBehavior = obj.behaviors?.find(b => b.name === 'Patrol');
+                if (patrolBehavior) {
+                    const { speed = 50, range = 100 } = patrolBehavior.properties;
+                    if (obj.initialX === undefined) obj.initialX = obj.x;
+                    const time = performance.now() / 1000;
+                    const t = (time * speed) / range;
+                    const cycle = t % 2;
+                    const offset = cycle < 1 ? cycle * range : (2 - cycle) * range;
+                    obj.x = obj.initialX + offset - range / 2;
+                    obj.direction = cycle < 1 ? 'right' : 'left';
+                }
+
+                const oscillateBehavior = obj.behaviors?.find(b => b.name === 'Oscillate');
+                if (oscillateBehavior) {
+                    const { axis = 'x', distance = 100, speed = 2 } = oscillateBehavior.properties;
+                    if (obj.initialX === undefined) obj.initialX = obj.x;
+                    if (obj.initialY === undefined) obj.initialY = obj.y;
+                    const time = performance.now() / 1000;
+                    const offset = Math.sin(time * speed) * distance;
+                    if (axis === 'x') {
+                        obj.x = obj.initialX + offset;
+                    } else {
+                        obj.y = obj.initialY + offset;
+                    }
+                }
+
+                const rotateBehavior = obj.behaviors?.find(b => b.name === 'Rotate');
+                if (rotateBehavior) {
+                    const { rotationSpeed = 90 } = rotateBehavior.properties;
+                    obj.rotation = ((obj.rotation || 0) + rotationSpeed * deltaTime) % 360;
+                    if (obj.rotation < 0) obj.rotation += 360;
+                }
+
+                const pulseBehavior = obj.behaviors?.find(b => b.name === 'Pulse');
+                if (pulseBehavior) {
+                    const { distance = 0.2, speed = 2 } = pulseBehavior.properties;
+                    if (obj.initialScaleX === undefined) obj.initialScaleX = obj.scaleX ?? 1;
+                    if (obj.initialScaleY === undefined) obj.initialScaleY = obj.scaleY ?? 1;
+                    const time = performance.now() / 1000;
+                    const offset = Math.sin(time * speed) * distance;
+                    obj.scaleX = obj.initialScaleX + offset;
+                    obj.scaleY = obj.initialScaleY + offset;
+                }
+
                 if (obj.rotationSpeed) {
                     obj.rotation = ((obj.rotation || 0) + obj.rotationSpeed * deltaTime) % 360;
                     if (obj.rotation < 0) obj.rotation += 360;
@@ -927,15 +972,26 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     }
                 }
 
-                const frame = activeAnim.animation.frames[currentFrameIndex];
-                if (frame) {
-                    const asset = assets.find(a => a.id === frame.assetId);
+                const currentFrame = activeAnim.animation.frames[currentFrameIndex];
+                const nextFrameIndex = (currentFrameIndex + 1) % activeAnim.animation.frames.length;
+                const nextFrame = activeAnim.animation.frames[nextFrameIndex];
+
+                const frameStartTime = cumulativeTime - currentFrame.duration;
+                const frameElapsed = currentElapsed - frameStartTime;
+                const t = frameElapsed / currentFrame.duration;
+
+                if (currentFrame) {
+                    const asset = assets.find(a => a.id === currentFrame.assetId);
                     if (asset) obj.imageUrl = asset.url;
-                    obj.animOffsetX = frame.x || 0;
-                    obj.animOffsetY = frame.y || 0;
-                    obj.animRotation = frame.rotation || 0;
-                    obj.animScaleX = frame.scaleX ?? 1;
-                    obj.animScaleY = frame.scaleY ?? 1;
+                    
+                    const lerp = (a, b, t) => a + (b - a) * t;
+                    const shouldInterpolate = activeAnim.animation.loop || currentFrameIndex < activeAnim.animation.frames.length - 1;
+                    
+                    obj.animOffsetX = shouldInterpolate ? lerp(currentFrame.x ?? 0, nextFrame.x ?? currentFrame.x ?? 0, t) : (currentFrame.x ?? 0);
+                    obj.animOffsetY = shouldInterpolate ? lerp(currentFrame.y ?? 0, nextFrame.y ?? currentFrame.y ?? 0, t) : (currentFrame.y ?? 0);
+                    obj.animRotation = shouldInterpolate ? lerp(currentFrame.rotation ?? 0, nextFrame.rotation ?? currentFrame.rotation ?? 0, t) : (currentFrame.rotation ?? 0);
+                    obj.animScaleX = shouldInterpolate ? lerp(currentFrame.scaleX ?? 1, nextFrame.scaleX ?? currentFrame.scaleX ?? 1, t) : (currentFrame.scaleX ?? 1);
+                    obj.animScaleY = shouldInterpolate ? lerp(currentFrame.scaleY ?? 1, nextFrame.scaleY ?? currentFrame.scaleY ?? 1, t) : (currentFrame.scaleY ?? 1);
                 }
             });
             
