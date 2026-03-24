@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import type { GameAsset } from '../types';
+import { useLanguage } from '../LanguageContext';
 
 interface SpriteEditorProps {
   assetToEdit: GameAsset | null;
@@ -14,6 +15,7 @@ const CHECKERBOARD_COLOR_2 = '#2D3748'; // gray-700
 type Tool = 'pencil' | 'eraser' | 'picker' | 'bucket';
 
 export const SpriteEditor: React.FC<SpriteEditorProps> = ({ assetToEdit, onSave, onClose }) => {
+  const { t } = useLanguage();
   const [size, setSize] = useState(32);
   const [customSize, setCustomSize] = useState("32");
   const [pixelData, setPixelData] = useState<string[][]>([]);
@@ -244,7 +246,7 @@ export const SpriteEditor: React.FC<SpriteEditorProps> = ({ assetToEdit, onSave,
   const handleApplyCustomSize = () => {
     const newSize = parseInt(customSize, 10);
     if (isNaN(newSize) || newSize <= 0 || newSize > 128) {
-        alert("Introduce un tamaño válido entre 1 y 128.");
+        alert(t('spriteEditor.invalidSize'));
         return;
     }
     if (newSize !== size) {
@@ -253,7 +255,7 @@ export const SpriteEditor: React.FC<SpriteEditorProps> = ({ assetToEdit, onSave,
   };
 
   const handleSizeChange = (newSize: number) => {
-    const confirmChange = window.confirm("Cambiar el tamaño del lienzo borrará el contenido actual. ¿Estás seguro?");
+    const confirmChange = window.confirm(t('spriteEditor.confirmSizeChange'));
     if (confirmChange) {
         setSize(newSize);
         setCustomSize(String(newSize));
@@ -268,13 +270,13 @@ export const SpriteEditor: React.FC<SpriteEditorProps> = ({ assetToEdit, onSave,
         <header className="flex items-center justify-between p-2 border-b border-gray-800 shrink-0">
           <input type="text" value={name} onChange={e => setName(e.target.value)} className="bg-gray-800 border border-gray-700 px-2 py-1 rounded text-sm"/>
           <div className="flex items-center gap-2">
-            <label className="text-sm">Tamaño:</label>
+            <label className="text-sm">{t('spriteEditor.size')}:</label>
             {[16,32,64].map(s => <button key={s} onClick={() => handleSizeChange(s)} className={`px-2 py-1 text-xs rounded ${size === s ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'}`}>{s}x{s}</button>)}
              <input type="number" value={customSize} onChange={e => setCustomSize(e.target.value)} className="bg-gray-800 border border-gray-700 px-2 py-1 rounded text-sm w-16" onKeyDown={e => e.key ==='Enter' && handleApplyCustomSize()}/>
-            <button onClick={handleApplyCustomSize} className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">Set</button>
+            <button onClick={handleApplyCustomSize} className="px-2 py-1 text-xs rounded bg-gray-700 hover:bg-gray-600">{t('common.set')}</button>
           </div>
           <div className="flex items-center gap-3">
-            <button onClick={handleSave} className="px-4 py-1.5 bg-green-600 hover:bg-green-700 rounded-md text-sm">Guardar y Cerrar</button>
+            <button onClick={handleSave} className="px-4 py-1.5 bg-green-600 hover:bg-green-700 rounded-md text-sm">{t('common.saveAndClose')}</button>
             <button onClick={onClose} className="text-gray-400 hover:text-white text-xl font-bold">&times;</button>
           </div>
         </header>
@@ -282,7 +284,7 @@ export const SpriteEditor: React.FC<SpriteEditorProps> = ({ assetToEdit, onSave,
         <main className="flex-grow flex p-4 overflow-hidden gap-4">
           <aside className="w-16 flex flex-col items-center gap-2 bg-black/50 p-2 rounded-lg">
             {(['pencil', 'eraser', 'picker', 'bucket'] as Tool[]).map(tool => (
-                <button key={tool} onClick={() => setActiveTool(tool)} className={`p-2 rounded-md ${activeTool === tool ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'}`} title={tool.charAt(0).toUpperCase() + tool.slice(1)}>
+                <button key={tool} onClick={() => setActiveTool(tool)} className={`p-2 rounded-md ${activeTool === tool ? 'bg-indigo-600' : 'bg-gray-700 hover:bg-gray-600'}`} title={t(`spriteEditor.tool.${tool}`)}>
                   <span className="text-xs">{tool.charAt(0).toUpperCase()}</span>
                 </button>
             ))}
@@ -329,14 +331,14 @@ export const SpriteEditor: React.FC<SpriteEditorProps> = ({ assetToEdit, onSave,
           
           <aside className="w-48 flex flex-col gap-4">
             <div className="bg-black/50 rounded-lg p-2 flex-grow">
-              <h3 className="text-sm font-semibold mb-2">Vista Previa</h3>
+              <h3 className="text-sm font-semibold mb-2">{t('spriteEditor.preview')}</h3>
               <canvas ref={previewCanvasRef} width="160" height="160" className="w-full h-auto" style={{imageRendering: 'pixelated'}} />
             </div>
             <div className="bg-black/50 rounded-lg p-2 shrink-0">
-                <h3 className="text-sm font-semibold mb-2">Colores</h3>
+                <h3 className="text-sm font-semibold mb-2">{t('spriteEditor.colors')}</h3>
                 <div className="flex items-center gap-2 mb-2">
-                    <input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="w-10 h-10 p-0 border-none bg-transparent rounded-md cursor-pointer" title="Color Primario"/>
-                    <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-10 h-10 p-0 border-none bg-transparent rounded-md cursor-pointer" title="Color Secundario"/>
+                    <input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="w-10 h-10 p-0 border-none bg-transparent rounded-md cursor-pointer" title={t('spriteEditor.primaryColor')}/>
+                    <input type="color" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-10 h-10 p-0 border-none bg-transparent rounded-md cursor-pointer" title={t('spriteEditor.secondaryColor')}/>
                     <div className="flex-grow space-y-1">
                        <input type="text" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="w-full text-xs bg-gray-700 border border-gray-600 rounded px-1" />
                        <input type="text" value={secondaryColor} onChange={e => setSecondaryColor(e.target.value)} className="w-full text-xs bg-gray-700 border border-gray-600 rounded px-1" />

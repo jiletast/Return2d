@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { TimelineIcon } from './icons/TimelineIcon';
 import type { Animation, GameAsset, AnimationKeyframe } from '../types';
+import { useLanguage } from '../LanguageContext';
 
 interface AnimationEditorProps {
   onClose: () => void;
@@ -18,6 +19,7 @@ const CloneIcon: React.FC = () => (
 
 
 const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, animations: initialAnimations, assets }) => {
+  const { t } = useLanguage();
   const [animations, setAnimations] = useState<Animation[]>(initialAnimations);
   const [selectedAnimId, setSelectedAnimId] = useState<string | null>(null);
   const [onionSkin, setOnionSkin] = useState({ enabled: true, pastFrames: 1, futureFrames: 1 });
@@ -59,7 +61,7 @@ const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, anim
   }, [animations, selectedAnimId, selectedAnimation]);
 
   const handleCreateAnimation = () => {
-    const newName = `Animación_${animations.length + 1}`;
+    const newName = t('animation.newName', { index: animations.length + 1 });
     const newAnim: Animation = {
       id: `anim_${Date.now()}`,
       name: newName,
@@ -156,20 +158,20 @@ const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, anim
         <header className="flex items-center justify-between p-4 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-2">
             <TimelineIcon />
-            <h2 className="text-xl font-bold">Editor de Animación</h2>
+            <h2 className="text-xl font-bold">{t('animation.editorTitle')}</h2>
           </div>
           <button onClick={handleSave} className="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
         </header>
         
         <main className="flex-grow flex p-4 overflow-hidden gap-4">
             <aside className="w-1/4 bg-black/50 rounded-lg p-2 flex flex-col">
-                <h3 className="text-lg font-semibold p-2 border-b border-gray-800">Animaciones</h3>
+                <h3 className="text-lg font-semibold p-2 border-b border-gray-800">{t('header.animations')}</h3>
                 <ul className="flex-grow overflow-y-auto py-2">
                     {animations.map(anim => (
                         <li key={anim.id} onClick={() => setSelectedAnimId(anim.id)} className={`p-2 rounded-md cursor-pointer ${selectedAnimId === anim.id ? 'bg-indigo-600' : 'hover:bg-gray-800'}`}>{anim.name}</li>
                     ))}
                 </ul>
-                <button onClick={handleCreateAnimation} className="w-full text-sm p-2 bg-gray-800 hover:bg-indigo-600 rounded-md mt-2">Nueva Animación</button>
+                <button onClick={handleCreateAnimation} className="w-full text-sm p-2 bg-gray-800 hover:bg-indigo-600 rounded-md mt-2">{t('animation.newAnimation')}</button>
             </aside>
 
             <div className="w-1/2 flex flex-col gap-4">
@@ -185,15 +187,15 @@ const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, anim
                    <img src={getFrameUrl(previewFrame)} style={getFrameStyle(previewFrame)} alt="Preview" className="relative max-w-full max-h-full object-contain" />
 
                    <div className="absolute bottom-2 left-2 flex gap-2">
-                        <button onClick={() => setIsPlaying(!isPlaying)} className="p-2 bg-gray-800 rounded-md hover:bg-indigo-600">{isPlaying ? 'Pausa' : 'Reproducir'}</button>
+                        <button onClick={() => setIsPlaying(!isPlaying)} className="p-2 bg-gray-800 rounded-md hover:bg-indigo-600">{isPlaying ? t('common.pause') : t('common.play')}</button>
                     </div>
                 </div>
                  <div className="h-1/3 bg-black/50 rounded-lg p-2">
-                     <h3 className="text-sm font-semibold mb-2">Recursos de Imagen</h3>
+                     <h3 className="text-sm font-semibold mb-2">{t('hierarchy.images')}</h3>
                      <div className="flex gap-2 overflow-x-auto h-full pb-2">
                          {imageAssets.map(asset => (
                              <div key={asset.id} onClick={() => addFrame(asset.id)} className="flex-shrink-0 cursor-pointer p-1 rounded-md hover:bg-indigo-600">
-                                 <img src={asset.url} alt={asset.name} title={`Añadir ${asset.name}`} className="w-16 h-16 object-cover rounded-md" />
+                                 <img src={asset.url} alt={asset.name} title={t('animation.addFrame', { name: asset.name })} className="w-16 h-16 object-cover rounded-md" />
                              </div>
                          ))}
                      </div>
@@ -201,55 +203,55 @@ const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, anim
             </div>
 
             <aside className="w-1/4 bg-black/50 rounded-lg p-2 overflow-y-auto">
-                 <h3 className="text-lg font-semibold p-2 border-b border-gray-800">Propiedades</h3>
+                 <h3 className="text-lg font-semibold p-2 border-b border-gray-800">{t('sidebar.properties')}</h3>
                  {selectedAnimation ? <div className="p-2 space-y-4">
                      <div>
-                         <label className="text-xs">Nombre</label>
+                         <label className="text-xs">{t('properties.name')}</label>
                          <input type="text" value={selectedAnimation.name} onChange={e => updateSelectedAnimation({ name: e.target.value })} className="w-full bg-gray-800 p-1 rounded-md text-sm" />
                      </div>
                      <div>
-                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selectedAnimation.loop} onChange={e => updateSelectedAnimation({ loop: e.target.checked })} /> Bucle</label>
+                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={selectedAnimation.loop} onChange={e => updateSelectedAnimation({ loop: e.target.checked })} /> {t('properties.loop')}</label>
                      </div>
                      <div className="border-t border-gray-800 pt-2 space-y-2">
-                         <h4 className="text-sm font-semibold">Transformación del Frame</h4>
+                         <h4 className="text-sm font-semibold">{t('animation.frameTransformation')}</h4>
                          {selectedAnimation.frames[previewFrame] ? (
                              <div className="grid grid-cols-2 gap-2 text-xs">
                                  <div>
-                                     <label>Pos X</label>
+                                     <label>{t('properties.posX')}</label>
                                      <input type="number" value={selectedAnimation.frames[previewFrame].x || 0} onChange={e => updateFrame(previewFrame, { x: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 p-1 rounded-md" />
                                  </div>
                                  <div>
-                                     <label>Pos Y</label>
+                                     <label>{t('properties.posY')}</label>
                                      <input type="number" value={selectedAnimation.frames[previewFrame].y || 0} onChange={e => updateFrame(previewFrame, { y: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 p-1 rounded-md" />
                                  </div>
                                  <div>
-                                     <label>Rotación</label>
+                                     <label>{t('animation.rotation')}</label>
                                      <input type="number" value={selectedAnimation.frames[previewFrame].rotation || 0} onChange={e => updateFrame(previewFrame, { rotation: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 p-1 rounded-md" />
                                  </div>
                                  <div>
-                                     <label>Escala</label>
+                                     <label>{t('properties.scale')}</label>
                                      <div className="flex gap-1">
                                          <input type="number" step="0.1" value={selectedAnimation.frames[previewFrame].scaleX ?? 1} onChange={e => updateFrame(previewFrame, { scaleX: parseFloat(e.target.value) || 1 })} className="w-full bg-gray-800 p-1 rounded-md" placeholder="X" />
                                          <input type="number" step="0.1" value={selectedAnimation.frames[previewFrame].scaleY ?? 1} onChange={e => updateFrame(previewFrame, { scaleY: parseFloat(e.target.value) || 1 })} className="w-full bg-gray-800 p-1 rounded-md" placeholder="Y" />
                                      </div>
                                  </div>
                              </div>
-                         ) : <p className="text-xs text-gray-500 italic">Añade frames para editar transformaciones.</p>}
+                         ) : <p className="text-xs text-gray-500 italic">{t('animation.addFramesToEdit')}</p>}
                      </div>
                      <div className="border-t border-gray-800 pt-2 space-y-2">
-                         <h4 className="text-sm font-semibold">Onion Skinning</h4>
-                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onionSkin.enabled} onChange={e => setOnionSkin(s => ({...s, enabled: e.target.checked}))} /> Habilitado</label>
+                         <h4 className="text-sm font-semibold">{t('animation.onionSkinning')}</h4>
+                         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onionSkin.enabled} onChange={e => setOnionSkin(s => ({...s, enabled: e.target.checked}))} /> {t('properties.enabled')}</label>
                          <div className="grid grid-cols-2 gap-2 text-sm">
-                             <label>Anteriores: <input type="number" min="0" value={onionSkin.pastFrames} onChange={e => setOnionSkin(s => ({...s, pastFrames: parseInt(e.target.value, 10)}))} className="w-12 bg-gray-800 p-1 rounded-md" /></label>
-                             <label>Siguientes: <input type="number" min="0" value={onionSkin.futureFrames} onChange={e => setOnionSkin(s => ({...s, futureFrames: parseInt(e.target.value, 10)}))} className="w-12 bg-gray-800 p-1 rounded-md" /></label>
+                             <label>{t('animation.past')}: <input type="number" min="0" value={onionSkin.pastFrames} onChange={e => setOnionSkin(s => ({...s, pastFrames: parseInt(e.target.value, 10)}))} className="w-12 bg-gray-800 p-1 rounded-md" /></label>
+                             <label>{t('animation.future')}: <input type="number" min="0" value={onionSkin.futureFrames} onChange={e => setOnionSkin(s => ({...s, futureFrames: parseInt(e.target.value, 10)}))} className="w-12 bg-gray-800 p-1 rounded-md" /></label>
                          </div>
                      </div>
-                 </div> : <p className="p-2 text-sm text-gray-500">Selecciona una animación.</p>}
+                 </div> : <p className="p-2 text-sm text-gray-500">{t('animation.selectAnimation')}</p>}
             </aside>
         </main>
         
         <footer className="h-48 p-4 border-t border-gray-800 shrink-0 bg-black/50">
-            <h3 className="text-sm font-semibold mb-2">Línea de Tiempo</h3>
+            <h3 className="text-sm font-semibold mb-2">{t('animation.timeline')}</h3>
             <div className="w-full h-full bg-gray-800 rounded-md overflow-x-auto flex items-center p-2 gap-2 relative" onDragOver={e => e.preventDefault()}>
                 {selectedAnimation?.frames.map((frame, index) => {
                     const asset = assets.find(a => a.id === frame.assetId);
@@ -263,8 +265,8 @@ const AnimationEditor: React.FC<AnimationEditorProps> = ({ onClose, onSave, anim
                         <img src={asset?.url} className="w-16 h-16 object-cover rounded-md pointer-events-none" />
                         <input type="number" value={frame.duration} onChange={e => updateFrame(index, { duration: parseInt(e.target.value, 10) || 0 })} className="w-20 bg-gray-800 text-center rounded text-xs p-0.5" />
                         <span className="text-xs">ms</span>
-                        <button onClick={() => removeFrame(index)} title="Eliminar" className="absolute -top-1 -right-1 bg-red-600 rounded-full h-4 w-4 text-xs z-10">&times;</button>
-                        <button onClick={() => duplicateFrame(index)} title="Duplicar" className="absolute -top-1 -left-1 bg-blue-600 rounded-full p-0.5 text-xs z-10"><CloneIcon /></button>
+                        <button onClick={() => removeFrame(index)} title={t('common.delete')} className="absolute -top-1 -right-1 bg-red-600 rounded-full h-4 w-4 text-xs z-10">&times;</button>
+                        <button onClick={() => duplicateFrame(index)} title={t('hierarchy.clone')} className="absolute -top-1 -left-1 bg-blue-600 rounded-full p-0.5 text-xs z-10"><CloneIcon /></button>
                     </div>);
                 })}
             </div>

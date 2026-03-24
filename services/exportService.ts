@@ -138,7 +138,7 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
             });
         };
         
-        const executeAction = (action, self, forceRestart = false) => {
+        const executeAction = (action, self, isContinuous = false, deltaTime = 0, forceRestart = false) => {
             let params = action.params;
             if (typeof params === 'string') {
                 try {
@@ -223,8 +223,18 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                 case 'MoveObject':
                     if (targetObj && action.params?.direction && action.params?.speed != null) {
                         const speed = Number(action.params.speed);
-                        if (!targetObj.pendingMovements) targetObj.pendingMovements = [];
-                        targetObj.pendingMovements.push({ direction: action.params.direction, speed });
+                        const direction = (action.params.direction || '').toLowerCase();
+                        if (isContinuous) {
+                            if (!targetObj.pendingMovements) targetObj.pendingMovements = [];
+                            targetObj.pendingMovements.push({ direction, speed });
+                        } else {
+                            switch (direction) {
+                                case 'right': targetObj.x += speed; break;
+                                case 'left': targetObj.x -= speed; break;
+                                case 'up': targetObj.y -= speed; break;
+                                case 'down': targetObj.y += speed; break;
+                            }
+                        }
                     }
                     break;
                 case 'SetVelocityX':
@@ -284,6 +294,79 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                 case 'RotateContinuously':
                     if (targetObj && action.params?.speed != null) {
                         targetObj.rotationSpeed = Number(action.params.speed);
+                    }
+                    break;
+                case 'RotateObject':
+                    if (targetObj && action.params?.rotation != null) {
+                        const rotation = Number(action.params.rotation || 0);
+                        if (isContinuous) {
+                            targetObj.rotation = ((targetObj.rotation || 0) + rotation * deltaTime) % 360;
+                        } else {
+                            targetObj.rotation = ((targetObj.rotation || 0) + rotation) % 360;
+                        }
+                        if (targetObj.rotation < 0) targetObj.rotation += 360;
+                    }
+                    break;
+                case 'ScaleObject':
+                    if (targetObj && action.params?.scaleX != null && action.params?.scaleY != null) {
+                        const scaleX = Number(action.params.scaleX || 1);
+                        const scaleY = Number(action.params.scaleY || 1);
+                        if (isContinuous) {
+                            targetObj.scaleX = Math.max(0.01, (targetObj.scaleX ?? 1) + (scaleX - 1) * deltaTime);
+                            targetObj.scaleY = Math.max(0.01, (targetObj.scaleY ?? 1) + (scaleY - 1) * deltaTime);
+                        } else {
+                            targetObj.scaleX = Math.max(0.01, (targetObj.scaleX ?? 1) * scaleX);
+                            targetObj.scaleY = Math.max(0.01, (targetObj.scaleY ?? 1) * scaleY);
+                        }
+                    }
+                    break;
+                case 'SetScale':
+                    if (targetObj && action.params?.scaleX != null && action.params?.scaleY != null) {
+                        targetObj.scaleX = Math.max(0.01, Number(action.params.scaleX));
+                        targetObj.scaleY = Math.max(0.01, Number(action.params.scaleY));
+                    }
+                    break;
+                case 'MoveTo':
+                    if (targetObj && action.params?.x != null && action.params?.y != null) {
+                        const duration = Number(action.params.duration || 1);
+                        if (!targetObj.tweens) targetObj.tweens = [];
+                        targetObj.tweens.push({
+                            type: 'position',
+                            startX: targetObj.x,
+                            startY: targetObj.y,
+                            endX: Number(action.params.x),
+                            endY: Number(action.params.y),
+                            startTime: performance.now(),
+                            duration: duration * 1000
+                        });
+                    }
+                    break;
+                case 'RotateTo':
+                    if (targetObj && action.params?.rotation != null) {
+                        const duration = Number(action.params.duration || 1);
+                        if (!targetObj.tweens) targetObj.tweens = [];
+                        targetObj.tweens.push({
+                            type: 'rotation',
+                            startRotation: targetObj.rotation || 0,
+                            endRotation: Number(action.params.rotation),
+                            startTime: performance.now(),
+                            duration: duration * 1000
+                        });
+                    }
+                    break;
+                case 'ScaleTo':
+                    if (targetObj && action.params?.scaleX != null && action.params?.scaleY != null) {
+                        const duration = Number(action.params.duration || 1);
+                        if (!targetObj.tweens) targetObj.tweens = [];
+                        targetObj.tweens.push({
+                            type: 'scale',
+                            startScaleX: targetObj.scaleX || 1,
+                            startScaleY: targetObj.scaleY || 1,
+                            endScaleX: Number(action.params.scaleX),
+                            endScaleY: Number(action.params.scaleY),
+                            startTime: performance.now(),
+                            duration: duration * 1000
+                        });
                     }
                     break;
                 case 'ForceJump':
@@ -922,11 +1005,32 @@ export const generateGameHTML = (projectData?: ProjectData | null): string => {
                     frameCollisions.push({ obj1Name: collidables[i].name, obj2Name: collidables[j].name, type: 'OnCollisionWith' });
                     const o1 = gameObjects.find(o => o.id === collidables[i].id);
                     const o2 = gameObjects.find(o => o.id === collidables[j].id);
-                    o1?.scripts?.forEach(s => s.trigger === 'OnCollisionWith' && (!s.params?.targetObjectName || s.params.targetObjectName === o2?.name) && s.actions.forEach(a => executeAction(a, o1)));
-                    o2?.scripts?.forEach(s => s.trigger === 'OnCollisionWith' && (!s.params?.targetObjectName || s.params.targetObjectName === o1?.name) && s.actions.forEach(a => executeAction(a, o2)));
+                    o1?.scripts?.forEach(s => s.trigger === 'OnCollisionWith' && (!s.params?.targetObjectName || s.params.targetObjectName === o2?.name) && s.actions.forEach(a => executeAction(a, o1, false, deltaTime)));
+                    o2?.scripts?.forEach(s => s.trigger === 'OnCollisionWith' && (!s.params?.targetObjectName || s.params.targetObjectName === o1?.name) && s.actions.forEach(a => executeAction(a, o2, false, deltaTime)));
                 }
             }
             
+            gameObjects.forEach(obj => {
+                if (obj.tweens) {
+                    obj.tweens = obj.tweens.filter(tween => {
+                        const elapsed = now - tween.startTime;
+                        const progress = Math.min(1, elapsed / tween.duration);
+                        
+                        if (tween.type === 'position') {
+                            obj.x = tween.startX + (tween.endX - tween.startX) * progress;
+                            obj.y = tween.startY + (tween.endY - tween.startY) * progress;
+                        } else if (tween.type === 'rotation') {
+                            obj.rotation = tween.startRotation + (tween.endRotation - tween.startRotation) * progress;
+                        } else if (tween.type === 'scale') {
+                            obj.scaleX = tween.startScaleX + (tween.endScaleX - tween.startScaleX) * progress;
+                            obj.scaleY = tween.startScaleY + (tween.endScaleY - tween.startScaleY) * progress;
+                        }
+                        
+                        return progress < 1;
+                    });
+                }
+            });
+
             evaluateEvents();
             frameKeyPresses = [];
             frameCollisions = []; frameClicks = []; frameTimerEvents = []; frameAttacks = [];

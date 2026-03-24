@@ -100,6 +100,21 @@ export interface GameObject {
   animScaleY?: number;
   scaleSpeedX?: number;
   scaleSpeedY?: number;
+  tweens?: {
+    type: 'position' | 'rotation' | 'scale';
+    startX?: number;
+    startY?: number;
+    endX?: number;
+    endY?: number;
+    startRotation?: number;
+    endRotation?: number;
+    startScaleX?: number;
+    startScaleY?: number;
+    endScaleX?: number;
+    endScaleY?: number;
+    startTime: number;
+    duration: number;
+  }[];
 }
 
 export interface GameAsset {
@@ -136,7 +151,7 @@ export interface Condition {
 
 export interface Action {
   object: string; // Can be an object name, 'System', or 'Self' for object scripts
-  action: 'Destroy' | 'AddToVariable' | 'SetVariable' | 'GoToScene' | 'SetUIText' | 'SetObjectPosition' | 'PlaySound' | 'SetBackgroundColor' | 'SetBackgroundMusic' | 'StopBackgroundMusic' | 'PauseBackgroundMusic' | 'ResumeBackgroundMusic' | 'SetBackgroundMusicVolume' | 'PlayAnimation' | 'ModifyStat' | 'ShowDialogue' | 'SetQuestState' | 'CreateMatch' | 'JoinMatch' | 'SendNetworkMessage' | 'SetPlayerName' | 'CreateObject' | 'PlayVideo' | 'PauseVideo' | 'StopVideo' | 'SaveGame' | 'LoadGame' | 'SetCameraZoom' | 'SetObjectVariable' | 'AddToObjectVariable' | 'StartTimer' | 'StopTimer' | 'MoveObject' | 'ForceJump' | 'TriggerAttack' | 'SetParent' | 'RotateObject' | 'ScaleObject' | 'GenerateObjectAt' | 'OscillateObject' | 'OscillateScale' | 'RotateContinuously' | 'SetScale' | 'SetVelocityX' | 'SetVelocityY' | 'SetRotationSpeed' | 'SetScaleSpeedX' | 'SetScaleSpeedY';
+  action: 'Destroy' | 'AddToVariable' | 'SetVariable' | 'GoToScene' | 'SetUIText' | 'SetObjectPosition' | 'PlaySound' | 'SetBackgroundColor' | 'SetBackgroundMusic' | 'StopBackgroundMusic' | 'PauseBackgroundMusic' | 'ResumeBackgroundMusic' | 'SetBackgroundMusicVolume' | 'PlayAnimation' | 'ModifyStat' | 'ShowDialogue' | 'SetQuestState' | 'CreateMatch' | 'JoinMatch' | 'SendNetworkMessage' | 'SetPlayerName' | 'CreateObject' | 'PlayVideo' | 'PauseVideo' | 'StopVideo' | 'SaveGame' | 'LoadGame' | 'SetCameraZoom' | 'SetObjectVariable' | 'AddToObjectVariable' | 'StartTimer' | 'StopTimer' | 'MoveObject' | 'ForceJump' | 'TriggerAttack' | 'SetParent' | 'RotateObject' | 'ScaleObject' | 'GenerateObjectAt' | 'OscillateObject' | 'OscillateScale' | 'RotateContinuously' | 'SetScale' | 'SetVelocityX' | 'SetVelocityY' | 'SetRotationSpeed' | 'SetScaleSpeedX' | 'SetScaleSpeedY' | 'MoveTo' | 'RotateTo' | 'ScaleTo';
   params?: Record<string, any>;
 }
 
@@ -170,6 +185,7 @@ export interface ProjectData {
   animations: Animation[];
   globalVariables?: Variable[];
   orientation?: 'landscape' | 'portrait';
+  responsive?: boolean;
   gameWidth?: number;
   gameHeight?: number;
   joystick?: {

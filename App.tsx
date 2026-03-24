@@ -20,27 +20,33 @@ import { HierarchyIcon } from './components/icons/HierarchyIcon';
 import { EditorIcon } from './components/icons/EditorIcon';
 import { InspectorIcon } from './components/icons/InspectorIcon';
 import { get, set } from 'idb-keyval';
+import { motion, AnimatePresence } from 'motion/react';
 
+
+import { LanguageProvider, useLanguage } from './LanguageContext';
 
 const PROJECTS_STORAGE_KEY = 'return2d-projects';
 const NOTICE_ACCEPTED_KEY = 'return2d-notice-accepted';
 
-const NoticeModal: React.FC<{ onAccept: () => void }> = ({ onAccept }) => (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4">
-        <div className="bg-gray-900 rounded-lg shadow-2xl border border-gray-800 w-full max-w-md p-6 text-center">
-            <h2 className="text-xl font-bold mb-4 text-yellow-400">Aviso Importante</h2>
-            <p className="text-gray-300 mb-6">
-                Este programa es un prototipo y tiene algunos errores que se mejorarán en el futuro. Si encuentras uno, por favor, ¡ponlo en los comentarios! Gracias por tu ayuda.
-            </p>
-            <button
-                onClick={onAccept}
-                className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md transition-colors text-white font-semibold"
-            >
-                Aceptar
-            </button>
+const NoticeModal: React.FC<{ onAccept: () => void }> = ({ onAccept }) => {
+    const { t } = useLanguage();
+    return (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4">
+            <div className="bg-gray-900 rounded-lg shadow-2xl border border-gray-800 w-full max-w-md p-6 text-center">
+                <h2 className="text-xl font-bold mb-4 text-yellow-400">{t('notice.title')}</h2>
+                <p className="text-gray-300 mb-6">
+                    {t('notice.message')}
+                </p>
+                <button
+                    onClick={onAccept}
+                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-md transition-colors text-white font-semibold"
+                >
+                    {t('notice.accept')}
+                </button>
+            </div>
         </div>
-    </div>
-);
+    );
+};
 
 
 const createNewScene = (name: string): Scene => {
@@ -56,13 +62,13 @@ const createNewScene = (name: string): Scene => {
     };
 };
 
-const createNewProjectData = (): ProjectData => {
-    const starterScene = createNewScene('Escena de Inicio');
+const createNewProjectData = (t: (key: string) => string): ProjectData => {
+    const starterScene = createNewScene(t('starter.sceneName'));
     
     starterScene.gameObjects = [
       { id: 1, name: 'Player', x: 100, y: 450, width: 30, height: 50, color: '#3b82f6', zIndex: 10, behaviors: [{ name: 'PlatformerCharacter', properties: { speed: 150, jumpForce: 350, gravity: 500 } }, { name: 'FollowCamera', properties: {} }], variables: [], direction: 'right', rotation: 0, scaleX: 1, scaleY: 1, stats: { hp: 100, maxHp: 100, attack: 10} },
       { id: 2, name: 'Ground', x: 0, y: 500, width: 1024, height: 50, color: '#4b5563', zIndex: 1, behaviors: [{ name: 'Solid', properties: {} }] },
-      { id: 3, name: 'ScoreText', isUI: true, x: 10, y: 10, width: 200, height: 30, color: 'transparent', zIndex: 1000, text: 'Score: {score}' },
+      { id: 3, name: 'ScoreText', isUI: true, x: 10, y: 10, width: 200, height: 30, color: 'transparent', zIndex: 1000, text: t('starter.score') },
     ];
     return {
         scenes: [starterScene],
@@ -70,9 +76,9 @@ const createNewProjectData = (): ProjectData => {
         assets: [],
         animations: [],
         globalVariables: [{name: 'score', value: 0}],
-        orientation: 'landscape',
-        gameWidth: 1024,
-        gameHeight: 768,
+        orientation: window.innerWidth > window.innerHeight ? 'landscape' : 'portrait',
+        gameWidth: window.innerWidth,
+        gameHeight: window.innerHeight,
         joystick: {
             enabled: true,
             position: 'left',
@@ -85,6 +91,15 @@ const createNewProjectData = (): ProjectData => {
 type AppState = 'loading' | 'start' | 'editor' | 'playing';
 
 const App: React.FC = () => {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const { t } = useLanguage();
   const [appState, setAppState] = useState<AppState>('loading');
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectData, setProjectData] = useState<ProjectData | null>(null);
@@ -107,6 +122,51 @@ const App: React.FC = () => {
   const [isHierarchyCollapsed, setIsHierarchyCollapsed] = useState(false);
   const [isInspectorCollapsed, setIsInspectorCollapsed] = useState(false);
   const [activeMobilePanel, setActiveMobilePanel] = useState<'hierarchy' | 'editor' | 'inspector'>('editor');
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+  const [isResizingHierarchy, setIsResizingHierarchy] = useState(false);
+  const [isResizingInspector, setIsResizingInspector] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const startResizingHierarchy = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingHierarchy(true);
+  }, []);
+
+  const startResizingInspector = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingInspector(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizingHierarchy(false);
+    setIsResizingInspector(false);
+  }, []);
+
+  const resize = useCallback((e: MouseEvent) => {
+    if (isResizingHierarchy) {
+      const newWidth = Math.max(150, Math.min(600, e.clientX));
+      setHierarchyWidth(newWidth);
+    } else if (isResizingInspector) {
+      const newWidth = Math.max(200, Math.min(600, window.innerWidth - e.clientX));
+      setInspectorWidth(newWidth);
+    }
+  }, [isResizingHierarchy, isResizingInspector]);
+
+  useEffect(() => {
+    if (isResizingHierarchy || isResizingInspector) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizingHierarchy, isResizingInspector, resize, stopResizing]);
 
   const debounceTimeout = useRef<number | null>(null);
 
@@ -185,7 +245,7 @@ const App: React.FC = () => {
         id: `proj_${Date.now()}`,
         name,
         lastModified: Date.now(),
-        data: createNewProjectData(),
+        data: createNewProjectData(t),
     };
     const updatedProjects = [...projects, newProject];
     handleSaveProjects(updatedProjects);
@@ -210,6 +270,35 @@ const App: React.FC = () => {
     handleSaveProjects(updatedProjects);
   };
   
+  const handleImportProject = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const importedData = JSON.parse(event.target?.result as string);
+        if (importedData.scenes && importedData.assets) {
+          const newProject: Project = {
+            id: `proj_${Date.now()}`,
+            name: importedData.name || `Importado_${Date.now()}`,
+            lastModified: Date.now(),
+            data: importedData.data || importedData, // Handle both project-only and full-project formats
+          };
+          const updatedProjects = [...projects, newProject];
+          handleSaveProjects(updatedProjects);
+          showToast("Proyecto importado con éxito");
+        } else {
+          showToast("Formato de archivo no válido");
+        }
+      } catch (error) {
+        console.error("Error importing project:", error);
+        showToast("Error al importar el archivo");
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleReturnToStart = () => {
     handleSaveCurrentProject();
     setActiveProjectId(null);
@@ -340,6 +429,7 @@ const App: React.FC = () => {
             globalVariables={projectData?.globalVariables ?? []}
             gameWidth={projectData?.gameWidth ?? 1024}
             gameHeight={projectData?.gameHeight ?? 768}
+            responsive={projectData?.responsive}
             joystick={projectData?.joystick}
             onExit={handleExitPlay}
             onGoToScene={handleGoToScene}
@@ -362,48 +452,72 @@ const App: React.FC = () => {
                 setShowExportModal(true);
             }}
             onReturnToStart={handleReturnToStart}
+            onImportProject={handleImportProject}
             projectName={projects.find(p => p.id === activeProjectId)?.name ?? 'Sin Título'}
             onUpdateProjectName={(newName) => {
                 const updatedProjects = projects.map(p => p.id === activeProjectId ? { ...p, name: newName } : p);
                 setProjects(updatedProjects); // Local state update for responsiveness
             }}
         />
-        <main className="flex-grow flex h-full overflow-hidden md:flex-row flex-col">
-            <div className={`${activeMobilePanel === 'hierarchy' ? 'flex' : 'hidden'} md:flex`}>
-                <SceneHierarchy 
-                    scenes={projectData?.scenes ?? []}
-                    activeSceneId={projectData?.activeSceneId ?? null}
-                    onSelectScene={(id) => updateProjectData({ activeSceneId: id })}
-                    onAddScene={() => {
-                        const newScene = createNewScene(`Escena ${projectData!.scenes.length + 1}`);
-                        updateProjectData({ scenes: [...projectData!.scenes, newScene], activeSceneId: newScene.id });
+        <main className={`flex-grow flex h-full overflow-hidden md:flex-row flex-col relative ${isResizingHierarchy || isResizingInspector ? 'cursor-col-resize' : ''}`}>
+            <div className={`${activeMobilePanel === 'hierarchy' ? 'flex' : 'hidden'} md:flex h-full absolute inset-0 z-40 md:relative md:inset-auto bg-gray-900 overflow-hidden`}>
+                <motion.div 
+                    className="w-full h-full flex flex-col"
+                    initial={isMobile ? { y: '100%' } : false}
+                    animate={isMobile ? (activeMobilePanel === 'hierarchy' ? { y: 0 } : { y: '100%' }) : { y: 0 }}
+                    transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                    drag={isMobile ? "y" : false}
+                    dragConstraints={{ top: 0 }}
+                    dragElastic={0.2}
+                    onDragEnd={(_e, info) => {
+                        if (info.offset.y > 100) setActiveMobilePanel('editor');
                     }}
-                    onCloneScene={(id) => {
-                        const sceneToClone = projectData?.scenes.find(s => s.id === id);
-                        if(sceneToClone) {
-                            const newScene = {
-                                ...JSON.parse(JSON.stringify(sceneToClone)),
-                                id: `scene_${Date.now()}`,
-                                name: `${sceneToClone.name} Copia`
-                            };
+                >
+                    <div className="md:hidden w-full h-8 flex items-center justify-center shrink-0 cursor-row-resize touch-none">
+                        <div className="w-12 h-1.5 bg-gray-700 rounded-full" />
+                    </div>
+                    <SceneHierarchy 
+                        scenes={projectData?.scenes ?? []}
+                        activeSceneId={projectData?.activeSceneId ?? null}
+                        onSelectScene={(id) => updateProjectData({ activeSceneId: id })}
+                        onAddScene={() => {
+                            const newScene = createNewScene(`Escena ${projectData!.scenes.length + 1}`);
                             updateProjectData({ scenes: [...projectData!.scenes, newScene], activeSceneId: newScene.id });
-                        }
-                    }}
-                    objects={activeScene?.gameObjects ?? []}
-                    selectedId={selectedObjectId}
-                    onSelect={setSelectedObjectId}
-                    onUpdateObject={handleUpdateObject}
-                    assets={projectData?.assets ?? []}
-                    onAddAsset={handleAddAsset}
-                    onUpdateAsset={handleUpdateAsset}
-                    onOpenAnimationEditor={() => setShowAnimationEditor(true)}
-                    onOpenSpriteEditor={handleOpenSpriteEditor}
-                    onOpenAudioLab={() => setShowAudioLab(true)}
-                    onOpenSoundtrackEditor={() => setShowSoundtrackEditor(true)}
-                    width={isHierarchyCollapsed ? 40 : hierarchyWidth}
-                    onToggleCollapse={() => setIsHierarchyCollapsed(!isHierarchyCollapsed)}
-                />
+                        }}
+                        onCloneScene={(id) => {
+                            const sceneToClone = projectData?.scenes.find(s => s.id === id);
+                            if(sceneToClone) {
+                                const newScene = {
+                                    ...JSON.parse(JSON.stringify(sceneToClone)),
+                                    id: `scene_${Date.now()}`,
+                                    name: `${sceneToClone.name} Copia`
+                                };
+                                updateProjectData({ scenes: [...projectData!.scenes, newScene], activeSceneId: newScene.id });
+                            }
+                        }}
+                        objects={activeScene?.gameObjects ?? []}
+                        selectedId={selectedObjectId}
+                        onSelect={setSelectedObjectId}
+                        onUpdateObject={handleUpdateObject}
+                        assets={projectData?.assets ?? []}
+                        onAddAsset={handleAddAsset}
+                        onUpdateAsset={handleUpdateAsset}
+                        onOpenAnimationEditor={() => setShowAnimationEditor(true)}
+                        onOpenSpriteEditor={handleOpenSpriteEditor}
+                        onOpenAudioLab={() => setShowAudioLab(true)}
+                        onOpenSoundtrackEditor={() => setShowSoundtrackEditor(true)}
+                        width={isHierarchyCollapsed ? 40 : hierarchyWidth}
+                        onToggleCollapse={() => setIsHierarchyCollapsed(!isHierarchyCollapsed)}
+                    />
+                </motion.div>
             </div>
+            {/* Hierarchy Resizer */}
+            {!isMobile && !isHierarchyCollapsed && (
+                <div 
+                    className={`w-1 bg-gray-800 hover:bg-indigo-500 cursor-col-resize transition-colors shrink-0 z-10 ${isResizingHierarchy ? 'bg-indigo-500' : ''}`}
+                    onMouseDown={startResizingHierarchy}
+                />
+            )}
             <div className={`flex-grow flex-col relative ${activeMobilePanel === 'editor' ? 'flex' : 'hidden'} md:flex`} id="editor-area">
                 <SceneEditor
                     scene={activeScene}
@@ -417,27 +531,69 @@ const App: React.FC = () => {
                     gameHeight={projectData?.gameHeight ?? 768}
                 />
             </div>
-            <div className={`${activeMobilePanel === 'inspector' ? 'flex' : 'hidden'} md:flex`}>
-                <PropertiesInspector 
-                    selectedObject={selectedObject}
-                    projectData={projectData!}
-                    onUpdateProjectData={updateProjectData}
-                    onUpdateObject={handleUpdateObject}
-                    onDeleteObject={handleDeleteObject}
-                    onCloneObject={handleCloneObject}
-                    onAddAsset={handleAddAsset}
-                    width={isInspectorCollapsed ? 40 : inspectorWidth}
-                    onToggleCollapse={() => setIsInspectorCollapsed(!isInspectorCollapsed)}
+            {/* Inspector Resizer */}
+            {!isMobile && !isInspectorCollapsed && (
+                <div 
+                    className={`w-1 bg-gray-800 hover:bg-indigo-500 cursor-col-resize transition-colors shrink-0 z-10 ${isResizingInspector ? 'bg-indigo-500' : ''}`}
+                    onMouseDown={startResizingInspector}
                 />
+            )}
+            <div className={`${activeMobilePanel === 'inspector' ? 'flex' : 'hidden'} md:flex absolute inset-0 z-40 md:relative md:inset-auto bg-gray-900 overflow-hidden`}>
+                <motion.div 
+                    className="w-full h-full flex flex-col"
+                    initial={isMobile ? { y: '100%' } : false}
+                    animate={isMobile ? (activeMobilePanel === 'inspector' ? { y: 0 } : { y: '100%' }) : { y: 0 }}
+                    transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                    drag={isMobile ? "y" : false}
+                    dragConstraints={{ top: 0 }}
+                    dragElastic={0.2}
+                    onDragEnd={(_e, info) => {
+                        if (info.offset.y > 100) setActiveMobilePanel('editor');
+                    }}
+                >
+                    <div className="md:hidden w-full h-8 flex items-center justify-center shrink-0 cursor-row-resize touch-none">
+                        <div className="w-12 h-1.5 bg-gray-700 rounded-full" />
+                    </div>
+                    <PropertiesInspector 
+                        selectedObject={selectedObject}
+                        projectData={projectData!}
+                        onUpdateProjectData={updateProjectData}
+                        onUpdateObject={handleUpdateObject}
+                        onDeleteObject={handleDeleteObject}
+                        onCloneObject={handleCloneObject}
+                        onAddAsset={handleAddAsset}
+                        width={isInspectorCollapsed ? 40 : inspectorWidth}
+                        onToggleCollapse={() => setIsInspectorCollapsed(!isInspectorCollapsed)}
+                    />
+                </motion.div>
+            </div>
+
+            {/* Mobile Navigation Bar */}
+            <div className="md:hidden flex bg-gray-900 border-t border-gray-800 h-16 shrink-0 z-50">
+                <button 
+                    onClick={() => setActiveMobilePanel('hierarchy')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 ${activeMobilePanel === 'hierarchy' ? 'text-indigo-400 bg-gray-800' : 'text-gray-400'}`}
+                >
+                    <HierarchyIcon />
+                    <span className="text-[10px] uppercase font-bold">{t('editor.mobile.hierarchy')}</span>
+                </button>
+                <button 
+                    onClick={() => setActiveMobilePanel('editor')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 ${activeMobilePanel === 'editor' ? 'text-indigo-400 bg-gray-800' : 'text-gray-400'}`}
+                >
+                    <EditorIcon />
+                    <span className="text-[10px] uppercase font-bold">{t('editor.mobile.editor')}</span>
+                </button>
+                <button 
+                    onClick={() => setActiveMobilePanel('inspector')}
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 ${activeMobilePanel === 'inspector' ? 'text-indigo-400 bg-gray-800' : 'text-gray-400'}`}
+                >
+                    <InspectorIcon />
+                    <span className="text-[10px] uppercase font-bold">{t('editor.mobile.inspector')}</span>
+                </button>
             </div>
         </main>
         
-        <div className="md:hidden flex bg-black border-t border-gray-800">
-            <button onClick={() => setActiveMobilePanel('hierarchy')} className={`flex-1 p-2 flex flex-col items-center ${activeMobilePanel === 'hierarchy' ? 'text-indigo-400' : ''}`}><HierarchyIcon/> <span className="text-xs">Jerarquía</span></button>
-            <button onClick={() => setActiveMobilePanel('editor')} className={`flex-1 p-2 flex flex-col items-center ${activeMobilePanel === 'editor' ? 'text-indigo-400' : ''}`}><EditorIcon/> <span className="text-xs">Editor</span></button>
-            <button onClick={() => setActiveMobilePanel('inspector')} className={`flex-1 p-2 flex flex-col items-center ${activeMobilePanel === 'inspector' ? 'text-indigo-400' : ''}`}><InspectorIcon/> <span className="text-xs">Inspector</span></button>
-        </div>
-
         {showExportModal && <ExportModal 
             onClose={() => setShowExportModal(false)} 
             projectData={projectData} 

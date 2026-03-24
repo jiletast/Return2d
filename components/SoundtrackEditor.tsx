@@ -3,6 +3,7 @@ import type { GameAsset } from '../types';
 import { GeminiIcon } from './icons/GeminiIcon';
 import { MusicNoteIcon } from './icons/MusicNoteIcon';
 import { GoogleGenAI, Modality } from '@google/genai';
+import { useLanguage } from '../LanguageContext';
 
 interface SoundtrackEditorProps {
   onClose: () => void;
@@ -19,13 +20,6 @@ interface Track {
     isMuted: boolean;
     isLoading: boolean;
 }
-
-const initialTracks: Track[] = [
-    { id: 1, name: 'Batería', prompt: '', audioUrl: null, audioBuffer: null, volume: 0.8, isMuted: false, isLoading: false },
-    { id: 2, name: 'Bajo', prompt: '', audioUrl: null, audioBuffer: null, volume: 0.8, isMuted: false, isLoading: false },
-    { id: 3, name: 'Melodía', prompt: '', audioUrl: null, audioBuffer: null, volume: 0.7, isMuted: false, isLoading: false },
-    { id: 4, name: 'Pads', prompt: '', audioUrl: null, audioBuffer: null, volume: 0.6, isMuted: false, isLoading: false },
-];
 
 const decode = (base64: string): Uint8Array => {
   const binaryString = atob(base64);
@@ -112,6 +106,15 @@ const audioBufferToWav = (buffer: AudioBuffer): Blob => {
 
 
 const SoundtrackEditor: React.FC<SoundtrackEditorProps> = ({ onClose, onAddAsset }) => {
+    const { t } = useLanguage();
+    
+    const initialTracks: Track[] = [
+        { id: 1, name: t('soundtrackEditor.track.drums'), prompt: '', audioUrl: null, audioBuffer: null, volume: 0.8, isMuted: false, isLoading: false },
+        { id: 2, name: t('soundtrackEditor.track.bass'), prompt: '', audioUrl: null, audioBuffer: null, volume: 0.8, isMuted: false, isLoading: false },
+        { id: 3, name: t('soundtrackEditor.track.melody'), prompt: '', audioUrl: null, audioBuffer: null, volume: 0.7, isMuted: false, isLoading: false },
+        { id: 4, name: t('soundtrackEditor.track.pads'), prompt: '', audioUrl: null, audioBuffer: null, volume: 0.6, isMuted: false, isLoading: false },
+    ];
+
     const [mainPrompt, setMainPrompt] = useState('');
     const [tracks, setTracks] = useState<Track[]>(initialTracks);
     const [isLoading, setIsLoading] = useState(false);
@@ -262,7 +265,7 @@ const SoundtrackEditor: React.FC<SoundtrackEditorProps> = ({ onClose, onAddAsset
     const handleSave = async () => {
         const playableTracks = tracks.filter(t => t.audioBuffer);
         if (playableTracks.length === 0) {
-            alert("Genera al menos una pista antes de guardar.");
+            alert(t('soundtrackEditor.generateAtLeastOne'));
             return;
         }
 
@@ -305,7 +308,7 @@ const SoundtrackEditor: React.FC<SoundtrackEditorProps> = ({ onClose, onAddAsset
 
         } catch (e) {
             console.error("Error saving soundtrack", e);
-            alert("No se pudo guardar la banda sonora.");
+            alert(t('soundtrackEditor.saveError'));
         } finally {
             setIsLoading(false);
         }
@@ -316,25 +319,25 @@ const SoundtrackEditor: React.FC<SoundtrackEditorProps> = ({ onClose, onAddAsset
         <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-4" onClick={onClose}>
             <div className="bg-gray-900 rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col border border-gray-800" onClick={e => e.stopPropagation()}>
                 <header className="flex items-center justify-between p-4 border-b border-gray-800 shrink-0">
-                    <h2 className="text-xl font-bold flex items-center gap-2"><MusicNoteIcon /> Editor de Banda Sonora</h2>
+                    <h2 className="text-xl font-bold flex items-center gap-2"><MusicNoteIcon /> {t('soundtrackEditor.title')}</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl font-bold">&times;</button>
                 </header>
                 
                 <main className="flex-grow p-4 space-y-4 overflow-y-auto">
                     <div className="bg-black/50 p-3 rounded-lg border border-gray-800 space-y-2">
-                         <h3 className="text-md font-semibold text-indigo-300 flex items-center gap-2"><GeminiIcon /> 1. Describe tu canción</h3>
+                         <h3 className="text-md font-semibold text-indigo-300 flex items-center gap-2"><GeminiIcon /> {t('soundtrackEditor.step1')}</h3>
                          <input
                             value={mainPrompt}
                             onChange={(e) => setMainPrompt(e.target.value)}
-                            placeholder="Ej: una canción funk animada para un nivel de ciudad"
+                            placeholder={t('soundtrackEditor.promptPlaceholder')}
                             className="w-full p-2 rounded-md bg-gray-800 border border-gray-700 text-sm"
                             disabled={isLoading}
                          />
-                         <button onClick={handleGenerateIdeas} disabled={isLoading || !mainPrompt.trim()} className="px-3 py-1.5 bg-indigo-600 rounded-md hover:bg-indigo-700 text-sm disabled:bg-gray-600">Generar Ideas para Pistas</button>
+                         <button onClick={handleGenerateIdeas} disabled={isLoading || !mainPrompt.trim()} className="px-3 py-1.5 bg-indigo-600 rounded-md hover:bg-indigo-700 text-sm disabled:bg-gray-600">{t('soundtrackEditor.generateIdeas')}</button>
                     </div>
 
                     <div className="bg-black/50 p-3 rounded-lg border border-gray-800 space-y-3">
-                         <h3 className="text-md font-semibold text-indigo-300">2. Genera y Mezcla las Pistas</h3>
+                         <h3 className="text-md font-semibold text-indigo-300">{t('soundtrackEditor.step2')}</h3>
                         {tracks.map(track => (
                             <div key={track.id} className="grid grid-cols-[80px_1fr_100px_150px] items-center gap-3 bg-gray-800/50 p-2 rounded-md">
                                 <span className="font-bold text-sm">{track.name}</span>
@@ -343,10 +346,10 @@ const SoundtrackEditor: React.FC<SoundtrackEditorProps> = ({ onClose, onAddAsset
                                     value={track.prompt}
                                     onChange={e => updateTrack(track.id, { prompt: e.target.value })}
                                     className="w-full text-xs bg-gray-700 p-1.5 rounded"
-                                    placeholder={`Describe el sonido para ${track.name.toLowerCase()}...`}
+                                    placeholder={t('soundtrackEditor.trackSoundPlaceholder', { name: track.name.toLowerCase() })}
                                 />
                                 <button onClick={() => handleGenerateTrack(track.id)} disabled={!track.prompt || track.isLoading} className="text-xs bg-indigo-600 px-2 py-1.5 rounded hover:bg-indigo-700 disabled:bg-gray-600">
-                                    {track.isLoading ? '...' : (track.audioBuffer ? 'Re-Generar' : 'Generar')}
+                                    {track.isLoading ? '...' : (track.audioBuffer ? t('common.regenerate') : t('common.generate'))}
                                 </button>
                                 <div className="flex items-center gap-2">
                                      <input type="range" min="0" max="1" step="0.01" value={track.volume} onChange={e => handleVolumeChange(track.id, parseFloat(e.target.value))} className="w-full" disabled={!track.audioBuffer}/>
@@ -358,14 +361,14 @@ const SoundtrackEditor: React.FC<SoundtrackEditorProps> = ({ onClose, onAddAsset
 
                  <footer className="p-4 border-t border-gray-800 shrink-0 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setIsPlaying(p => !p)} className="px-4 py-2 bg-green-600 rounded-md hover:bg-green-700 text-sm font-semibold">{isPlaying ? 'Parar' : 'Reproducir'}</button>
+                        <button onClick={() => setIsPlaying(p => !p)} className="px-4 py-2 bg-green-600 rounded-md hover:bg-green-700 text-sm font-semibold">{isPlaying ? t('common.stop') : t('common.play')}</button>
                         <div className="flex items-center gap-2">
-                             <span className="text-xs">Volumen Master</span>
+                             <span className="text-xs">{t('soundtrackEditor.masterVolume')}</span>
                              <input type="range" min="0" max="1" step="0.01" value={masterVolume} onChange={e => handleMasterVolumeChange(parseFloat(e.target.value))} />
                         </div>
                     </div>
                     <button onClick={handleSave} disabled={isLoading || tracks.every(t => !t.audioBuffer)} className="px-6 py-2 bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-700 disabled:cursor-not-allowed font-semibold">
-                        {isLoading ? 'Guardando...' : 'Guardar Banda Sonora'}
+                        {isLoading ? t('common.saving') : t('soundtrackEditor.saveSoundtrack')}
                     </button>
                 </footer>
             </div>

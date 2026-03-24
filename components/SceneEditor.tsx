@@ -3,6 +3,7 @@ import type { GameObject, GameAsset, Scene } from '../types';
 import { PlusIcon } from './icons/PlusIcon';
 import { DesktopIcon } from './icons/DesktopIcon';
 import { CameraIcon } from './icons/CameraIcon';
+import { useLanguage } from '../LanguageContext';
 
 interface SceneEditorProps {
   scene: Scene | undefined;
@@ -19,6 +20,7 @@ interface SceneEditorProps {
 type GameObjectWithAbsPos = GameObject & { absPos: { x: number; y: number }};
 
 const SceneEditor: React.FC<SceneEditorProps> = ({ scene, objects, selectedId, onSelect, onUpdateObject, onAddObject, onOpenEventEditor, gameWidth, gameHeight }) => {
+  const { t } = useLanguage();
   const sceneRef = useRef<HTMLDivElement>(null);
   const [draggingState, setDraggingState] = useState<{ 
     type: 'move' | 'rotate';
@@ -269,7 +271,7 @@ const SceneEditor: React.FC<SceneEditorProps> = ({ scene, objects, selectedId, o
         const newViewOffsetY = ((newMid.y - sceneRect.top) / newZoom) - worldY;
 
         setZoom(newZoom);
-        setViewOffset({ x: newViewOffsetX, y: newViewOffsetY });
+        setViewOffset({ x: newViewOffsetX, y: newViewOffsetX });
         pinchStateRef.current = { dist: newDist, mid: newMid };
       }
     };
@@ -509,7 +511,7 @@ const SceneEditor: React.FC<SceneEditorProps> = ({ scene, objects, selectedId, o
         width: 100,
         height: 40,
         color: '#4f46e5',
-        text: 'Botón',
+        text: t('sceneEditor.defaultButtonText'),
         zIndex: 1000,
     });
   };
@@ -520,15 +522,15 @@ const SceneEditor: React.FC<SceneEditorProps> = ({ scene, objects, selectedId, o
       <div className="flex items-center gap-2 p-2 bg-gray-900 border-b border-gray-800 shrink-0 flex-wrap">
         <button onClick={handleAddGameObjectClick} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-3 py-1.5 rounded-md text-sm transition-colors">
           <PlusIcon />
-          Añadir Objeto
+          {t('sceneEditor.addObject')}
         </button>
         <button onClick={handleAddUIObjectClick} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold px-3 py-1.5 rounded-md text-sm transition-colors">
             <DesktopIcon />
-            Añadir Objeto UI
+            {t('sceneEditor.addUIObject')}
         </button>
         <button onClick={onOpenEventEditor} className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-3 py-1.5 rounded-md text-sm transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
-          Editor de Eventos
+          {t('sceneEditor.eventEditor')}
         </button>
       </div>
 
@@ -595,7 +597,7 @@ const SceneEditor: React.FC<SceneEditorProps> = ({ scene, objects, selectedId, o
                     />
                      <div
                         className="absolute bg-indigo-500 rounded-full cursor-alias pointer-events-auto hover:ring-4 ring-indigo-400/50"
-                        title="Rotar Objeto"
+                        title={t('sceneEditor.rotateObject')}
                         style={{
                             width: `${16 / zoom}px`,
                             height: `${16 / zoom}px`,

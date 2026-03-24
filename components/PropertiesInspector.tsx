@@ -4,6 +4,7 @@ import { BehaviorDefinition, availableBehaviors } from '../behaviors/definitions
 import { BehaviorModal } from './BehaviorModal';
 import { TrashIcon } from './icons/TrashIcon';
 import { PlusIcon } from './icons/PlusIcon';
+import { useLanguage } from '../LanguageContext';
 
 const CollapseIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -97,11 +98,12 @@ const PropertyInput: React.FC<{ label: string; value: string | number; onChange:
 );
 
 const AssetPickerModal: React.FC<{assets: GameAsset[], onSelect: (asset: GameAsset) => void, onClose: () => void}> = ({assets, onSelect, onClose}) => {
+    const { t } = useLanguage();
     const imageAssets = assets.filter(a => a.type === 'image');
     return (
         <div className="absolute inset-0 bg-black bg-opacity-80 z-10 flex flex-col p-2" onClick={onClose}>
             <div className="bg-gray-900 rounded-lg p-2 border border-gray-800 flex flex-col max-h-full" onClick={e => e.stopPropagation()}>
-                <h4 className="text-sm font-bold mb-2 text-center">Seleccionar un Recurso de Imagen</h4>
+                <h4 className="text-sm font-bold mb-2 text-center">{t('properties.selectAsset')}</h4>
                 <div className="grid grid-cols-3 gap-2 overflow-y-auto">
                     {imageAssets.map(asset => (
                         <div key={asset.id} className="flex flex-col items-center p-1 bg-gray-800 rounded-md cursor-pointer hover:bg-indigo-600" onClick={() => onSelect(asset)}>
@@ -109,7 +111,7 @@ const AssetPickerModal: React.FC<{assets: GameAsset[], onSelect: (asset: GameAss
                             <span className="text-xs mt-1 truncate w-full text-center">{asset.name}</span>
                         </div>
                     ))}
-                    {imageAssets.length === 0 && <p className="col-span-3 text-xs text-gray-500 text-center py-4">No hay recursos de imagen en el proyecto.</p>}
+                    {imageAssets.length === 0 && <p className="col-span-3 text-xs text-gray-500 text-center py-4">{t('properties.noAssets')}</p>}
                 </div>
             </div>
         </div>
@@ -129,6 +131,7 @@ const ObjectVariablesEditor: React.FC<{
     variables: Variable[], 
     onUpdate: (vars: Variable[]) => void
 }> = ({ variables, onUpdate }) => {
+    const { t } = useLanguage();
     const handleAdd = () => {
         const newName = `miVar${variables.length}`;
         onUpdate([...variables, { name: newName, value: 0 }]);
@@ -145,7 +148,7 @@ const ObjectVariablesEditor: React.FC<{
     return (
         <div className="pt-4 border-t border-gray-800 space-y-2">
             <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-xs uppercase tracking-wider">Variables del Objeto</h3>
+                <h3 className="font-semibold text-xs uppercase tracking-wider">{t('properties.objectVariables')}</h3>
                 <button onClick={handleAdd} className="p-1.5 bg-gray-800 hover:bg-indigo-600 rounded-md"><PlusIcon /></button>
             </div>
             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -157,7 +160,7 @@ const ObjectVariablesEditor: React.FC<{
                                 value={v.name}
                                 onChange={e => handleUpdate(i, {...v, name: e.target.value})}
                                 className="bg-gray-700 flex-grow border border-gray-600 rounded-md px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                                placeholder="Nombre de Variable"
+                                placeholder={t('properties.variableName')}
                             />
                              <button onClick={() => handleRemove(i)} className="p-1 hover:bg-red-500/50 rounded-full"><TrashIcon /></button>
                         </div>
@@ -166,11 +169,11 @@ const ObjectVariablesEditor: React.FC<{
                             value={String(v.value)}
                             onChange={e => handleUpdate(i, {...v, value: parseValue(e.target.value)})}
                             className="bg-gray-700 w-full border border-gray-600 rounded-md px-2 py-1 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                            placeholder="Valor Inicial"
+                            placeholder={t('properties.variableValue')}
                         />
                     </div>
                 ))}
-                {variables.length === 0 && <p className="text-xs text-gray-500 text-center py-2">No hay variables específicas del objeto.</p>}
+                {variables.length === 0 && <p className="text-xs text-gray-500 text-center py-2">{t('properties.noVariables')}</p>}
             </div>
         </div>
     );
@@ -181,6 +184,7 @@ const ObjectScriptsEditor: React.FC<{
     onUpdate: (scripts: ObjectScript[]) => void;
     projectData: ProjectData;
 }> = ({ scripts, onUpdate, projectData }) => {
+    const { t } = useLanguage();
     const [selectorState, setSelectorState] = useState<{type: 'trigger' | 'action', scriptId: string, actionIndex?: number} | null>(null);
     
     const { scenes, assets, animations, globalVariables } = projectData;
@@ -196,13 +200,13 @@ const ObjectScriptsEditor: React.FC<{
           needsParams?: string[];
       }[];
     }[] = [
-      { category: 'Núcleo', options: [
-          { value: 'OnStart', label: 'Al Iniciar' },
-          { value: 'OnUpdate', label: 'Al Actualizar (Cada Fotograma)' },
+      { category: t('properties.system'), options: [
+          { value: 'OnStart', label: t('properties.onStart') },
+          { value: 'OnUpdate', label: t('properties.onUpdate') },
       ]},
-      { category: 'Entrada', options: [{ value: 'OnClick', label: 'Al Hacer Clic' }] },
-      { category: 'Colisión', options: [{ value: 'OnCollisionWith', label: 'Al Colisionar Con', needsTarget: true }] },
-      { category: 'Variable', options: [{ value: 'CompareObjectVariable', label: 'Al Comparar Variable', needsParams: ['variable', 'operator', 'value'] }] },
+      { category: t('trigger.onClick'), options: [{ value: 'OnClick', label: t('properties.onClick') }] },
+      { category: t('properties.onCollision'), options: [{ value: 'OnCollisionWith', label: t('properties.collisionWith'), needsTarget: true }] },
+      { category: t('properties.variables'), options: [{ value: 'CompareObjectVariable', label: t('properties.compareVariable'), needsParams: ['variable', 'operator', 'value'] }] },
     ];
     const triggerOptions: { value: ObjectTrigger, label: string, needsTarget?: boolean, needsParams?: string[] }[] = categorizedTriggerOptions.flatMap(c => c.options);
 
@@ -215,19 +219,19 @@ const ObjectScriptsEditor: React.FC<{
             needsParams?: string[];
         }[];
     }[] = [
-      { category: 'Objeto', options: [
-        { value: 'Destroy', label: 'Destruir' },
-        { value: 'CreateObject', label: 'Crear Objeto' },
-        { value: 'SetObjectPosition', label: 'Establecer Posición', needsParams: ['x', 'y'] },
-        { value: 'PlayAnimation', label: 'Reproducir Animación', needsParams: ['animationId'] },
+      { category: t('hierarchy.objects'), options: [
+        { value: 'Destroy', label: t('properties.destroy') },
+        { value: 'CreateObject', label: t('properties.createObject') },
+        { value: 'SetObjectPosition', label: t('properties.setPosition'), needsParams: ['x', 'y'] },
+        { value: 'PlayAnimation', label: t('properties.playAnimation'), needsParams: ['animationId'] },
       ]},
-      { category: 'Escena', options: [{ value: 'GoToScene', label: 'Ir a Escena', needsParams: ['sceneName'] }] },
-      { category: 'Variables', options: [
-        { value: 'ModifyStat', label: 'Modificar Estadística', needsParams: ['stat', 'operation', 'value'] },
-        { value: 'AddToVariable', label: 'Añadir a Variable Global', needsParams: ['variable', 'value'] },
-        { value: 'SetVariable', label: 'Establecer Variable Global', needsParams: ['variable', 'value'] },
-        { value: 'AddToObjectVariable', label: 'Añadir a Variable Propia', needsParams: ['variable', 'value'] },
-        { value: 'SetObjectVariable', label: 'Establecer Variable Propia', needsParams: ['variable', 'value'] },
+      { category: t('sidebar.scenes'), options: [{ value: 'GoToScene', label: t('properties.goToScene'), needsParams: ['sceneName'] }] },
+      { category: t('sidebar.variables'), options: [
+        { value: 'ModifyStat', label: t('properties.modifyStat'), needsParams: ['stat', 'operation', 'value'] },
+        { value: 'AddToVariable', label: t('properties.addToVariable'), needsParams: ['variable', 'value'] },
+        { value: 'SetVariable', label: t('properties.setVariable'), needsParams: ['variable', 'value'] },
+        { value: 'AddToObjectVariable', label: t('properties.addToObjectVariable'), needsParams: ['variable', 'value'] },
+        { value: 'SetObjectVariable', label: t('properties.setObjectVariable'), needsParams: ['variable', 'value'] },
       ]},
     ];
     const actionOptions: { value: Action['action'], label: string, needsParams?: string[] }[] = categorizedActionOptions.flatMap(c => c.options);
@@ -281,29 +285,29 @@ const ObjectScriptsEditor: React.FC<{
                  switch (param) {
                     case 'sceneName':
                         return <select key={param} className="input-field-sm" value={action.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
-                            <option value="">Seleccionar Escena</option>
+                            <option value="">{t('properties.selectScene')}</option>
                             {scenes.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
                         </select>;
                     case 'animationId':
                          return <select key={param} className="input-field-sm" value={action.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
-                            <option value="">Seleccionar Animación</option>
+                            <option value="">{t('properties.selectAnimation')}</option>
                             {animations.map(anim => <option key={anim.id} value={anim.id}>{anim.name}</option>)}
                         </select>;
                      case 'variable':
                          if (action.action === 'SetVariable' || action.action === 'AddToVariable') {
                             return <select key={param} className="input-field-sm" value={action.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
-                                <option value="">Variable Global</option>
+                                <option value="">{t('properties.globalVariable')}</option>
                                 {(globalVariables || []).map(v => <option key={v.name} value={v.name}>{v.name}</option>)}
                             </select>;
                          }
-                         return <input key={param} type="text" placeholder="Nombre Variable" className="input-field-sm" value={action.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})} />;
+                         return <input key={param} type="text" placeholder={t('properties.variableName')} className="input-field-sm" value={action.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})} />;
                     case 'stat':
                         return <select key={param} className="input-field-sm" value={action.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
-                            <option value="">Estadística</option><option value="hp">HP</option><option value="maxHp">HP Máx</option><option value="attack">Ataque</option>
+                            <option value="">{t('properties.stat')}</option><option value="hp">HP</option><option value="maxHp">{t('properties.maxHp')}</option><option value="attack">{t('properties.attack')}</option>
                         </select>;
                     case 'operation':
                         return <select key={param} className="input-field-sm" value={action.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
-                            <option value="add">Aumentar</option><option value="subtract">Disminuir</option><option value="set">Establecer</option>
+                            <option value="add">{t('properties.increase')}</option><option value="subtract">{t('properties.decrease')}</option><option value="set">{t('properties.set')}</option>
                         </select>;
                     case 'x': case 'y':
                         return <input key={param} type="number" placeholder={param.toUpperCase()} className="input-field-sm w-16" value={action.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})} />;
@@ -326,15 +330,15 @@ const ObjectScriptsEditor: React.FC<{
             {selectedOption.needsParams.map(param => {
                  switch (param) {
                     case 'variable':
-                        return <input key={param} type="text" placeholder="Nombre Variable" className="input-field-sm" value={script.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})} />;
+                        return <input key={param} type="text" placeholder={t('properties.variableName')} className="input-field-sm" value={script.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})} />;
                     case 'operator':
                          return <select key={param} className="input-field-sm" value={script.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})}>
-                            <option value="==">== (igual a)</option>
-                            <option value="!=">!= (no es igual)</option>
-                            <option value=">">&gt; (mayor que)</option>
-                            <option value="<">&lt; (menor que)</option>
-                            <option value=">=">&gt;= (mayor/igual)</option>
-                            <option value="<=">&lt;= (menor/igual)</option>
+                            <option value="==">== ({t('properties.operator')} ==)</option>
+                            <option value="!=">!= ({t('properties.operator')} !=)</option>
+                            <option value=">">&gt; ({t('properties.operator')} &gt;)</option>
+                            <option value="<">&lt; ({t('properties.operator')} &lt;)</option>
+                            <option value=">=">&gt;= ({t('properties.operator')} &gt;=)</option>
+                            <option value="<=">&lt;= ({t('properties.operator')} &lt;=)</option>
                         </select>;
                     default:
                         return <input key={param} type="text" placeholder={param} className="input-field-sm" value={script.params?.[param] ?? ''} onChange={e => updateParams({[param]: e.target.value})} />;
@@ -346,7 +350,7 @@ const ObjectScriptsEditor: React.FC<{
     return (
         <div className="pt-4 border-t border-gray-800 space-y-2 relative">
              {selectorState && <ItemSelectorModal 
-                title={selectorState.type === 'trigger' ? 'Seleccionar Disparador' : 'Seleccionar Acción'}
+                title={selectorState.type === 'trigger' ? t('properties.selectTrigger') : t('properties.selectAction')}
                 categorizedItems={selectorState.type === 'trigger' ? categorizedTriggerOptions : categorizedActionOptions}
                 onClose={() => setSelectorState(null)}
                 onSelect={(value) => {
@@ -360,7 +364,7 @@ const ObjectScriptsEditor: React.FC<{
              />}
             <style>{`.input-field-sm { background-color: #374151; border: 1px solid #4b5563; border-radius: 0.25rem; padding: 0.125rem 0.25rem; font-size: 0.75rem; width: 100%; }`}</style>
             <div className="flex justify-between items-center">
-                <h3 className="font-semibold text-xs uppercase tracking-wider">Lógica (Scripts)</h3>
+                <h3 className="font-semibold text-xs uppercase tracking-wider">{t('properties.logicScripts')}</h3>
                 <button onClick={addScript} className="p-1.5 bg-gray-800 hover:bg-indigo-600 rounded-md"><PlusIcon /></button>
             </div>
              <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
@@ -371,7 +375,7 @@ const ObjectScriptsEditor: React.FC<{
                                 onClick={() => setSelectorState({type: 'trigger', scriptId: script.id})}
                                 className="bg-gray-700 flex-grow border border-gray-600 rounded-md px-2 py-1 text-sm text-left hover:bg-gray-600"
                             >
-                                {triggerOptions.find(opt => opt.value === script.trigger)?.label || 'Seleccionar Disparador'}
+                                {triggerOptions.find(opt => opt.value === script.trigger)?.label || t('properties.selectTrigger')}
                             </button>
                             <button onClick={() => removeScript(script.id)} className="p-1 hover:bg-red-500/50 rounded-full"><TrashIcon /></button>
                         </div>
@@ -381,7 +385,7 @@ const ObjectScriptsEditor: React.FC<{
                                 onChange={e => updateScript(script.id, { params: { targetObjectName: e.target.value } })}
                                 className="bg-gray-700 w-full border border-gray-600 rounded-md px-2 py-1 text-sm"
                             >
-                                <option value="">Seleccionar Objeto Objetivo</option>
+                                <option value="">{t('properties.selectTargetObject')}</option>
                                 {objectNames.map(name => <option key={name} value={name}>{name}</option>)}
                             </select>
                         )}
@@ -391,7 +395,7 @@ const ObjectScriptsEditor: React.FC<{
                                 <div key={i} className="bg-gray-700/30 p-1.5 rounded">
                                     <div className="flex items-center gap-1 text-xs">
                                         <select value={action.object} onChange={e => updateAction(script.id, i, { object: e.target.value })} className="input-field-sm flex-1">
-                                            <option value="Self">Self (Este Objeto)</option>
+                                            <option value="Self">Self ({t('properties.thisObject')})</option>
                                             <option value="System">System</option>
                                             {objectNames.map(name => <option key={name} value={name}>{name}</option>)}
                                         </select>
@@ -400,18 +404,18 @@ const ObjectScriptsEditor: React.FC<{
                                             onClick={() => setSelectorState({type: 'action', scriptId: script.id, actionIndex: i})}
                                             className="input-field-sm flex-1 text-left hover:bg-gray-600"
                                         >
-                                            {actionOptions.find(opt => opt.value === action.action)?.label || 'Seleccionar Acción'}
+                                            {actionOptions.find(opt => opt.value === action.action)?.label || t('properties.selectAction')}
                                         </button>
                                         <button onClick={() => removeAction(script.id, i)} className="p-1 hover:text-red-400 text-lg leading-none">&times;</button>
                                     </div>
                                     {renderActionParams(script.id, i, action)}
                                 </div>
                             ))}
-                            <button onClick={() => addAction(script.id)} className="text-xs text-indigo-400 hover:text-indigo-300">+ Añadir Acción</button>
+                            <button onClick={() => addAction(script.id)} className="text-xs text-indigo-400 hover:text-indigo-300">+ {t('properties.addAction')}</button>
                         </div>
                     </div>
                 ))}
-                 {(scripts || []).length === 0 && <p className="text-xs text-gray-500 text-center py-2">Sin lógica. Añade un script para definir el comportamiento.</p>}
+                 {(scripts || []).length === 0 && <p className="text-xs text-gray-500 text-center py-2">{t('properties.noScripts')}</p>}
             </div>
         </div>
     );
@@ -471,17 +475,18 @@ const ScenePropertiesEditor: React.FC<{
     onUpdate: (updates: Partial<Scene>) => void;
     assets: GameAsset[];
 }> = ({ scene, onUpdate, assets }) => {
+    const { t } = useLanguage();
     const audioAssets = assets.filter(a => a.type === 'audio');
     
     return (
         <div className="space-y-4">
             <PropertyInput 
-                label="Nombre de la Escena" 
+                label={t('properties.sceneName')} 
                 value={scene.name} 
                 onChange={(val) => onUpdate({ name: val as string })} 
             />
             <div className="flex flex-col">
-                <label className="text-xs text-gray-400 mb-1">Color de Fondo</label>
+                <label className="text-xs text-gray-400 mb-1">{t('properties.backgroundColor')}</label>
                 <input 
                     type="color" 
                     value={scene.backgroundColor} 
@@ -490,41 +495,41 @@ const ScenePropertiesEditor: React.FC<{
                 />
             </div>
             <div className="flex flex-col">
-                <label className="text-xs text-gray-400 mb-1">Audio de Fondo</label>
+                <label className="text-xs text-gray-400 mb-1">{t('properties.backgroundMusic')}</label>
                 <select
                     value={scene.backgroundMusicId || ''}
                     onChange={(e) => onUpdate({ backgroundMusicId: e.target.value || undefined })}
                     className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1.5 text-sm w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 >
-                    <option value="">Ninguno</option>
+                    <option value="">{t('properties.none')}</option>
                     {audioAssets.map(asset => (
                         <option key={asset.id} value={asset.id}>{asset.name}</option>
                     ))}
                 </select>
             </div>
             <PropertyInput 
-                label="Zoom por Defecto" 
+                label={t('properties.defaultZoom')} 
                 type="number"
                 step={0.1}
                 value={scene.defaultZoom || 1} 
                 onChange={(val) => onUpdate({ defaultZoom: val as number })} 
             />
             <div className="pt-4 border-t border-gray-800 space-y-2">
-                 <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-400">Límites de Cámara</h3>
+                 <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-400">{t('properties.cameraBounds')}</h3>
                  <label className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800/50 p-2 rounded-md">
                     <input 
                         type="checkbox" 
                         checked={scene.cameraBounds?.enabled || false} 
                         onChange={(e) => onUpdate({ cameraBounds: { ...scene.cameraBounds!, enabled: e.target.checked } })}
                         className="form-checkbox bg-gray-700 border-gray-600 text-indigo-500 focus:ring-indigo-500" />
-                    Habilitar Límites
+                    {t('properties.enableBounds')}
                 </label>
                 {scene.cameraBounds?.enabled && (
                     <div className="grid grid-cols-2 gap-2">
                         <PropertyInput label="X" type="number" value={scene.cameraBounds.x} onChange={(val) => onUpdate({ cameraBounds: { ...scene.cameraBounds!, x: val as number } })} />
                         <PropertyInput label="Y" type="number" value={scene.cameraBounds.y} onChange={(val) => onUpdate({ cameraBounds: { ...scene.cameraBounds!, y: val as number } })} />
-                        <PropertyInput label="Ancho" type="number" value={scene.cameraBounds.width} onChange={(val) => onUpdate({ cameraBounds: { ...scene.cameraBounds!, width: val as number } })} />
-                        <PropertyInput label="Alto" type="number" value={scene.cameraBounds.height} onChange={(val) => onUpdate({ cameraBounds: { ...scene.cameraBounds!, height: val as number } })} />
+                        <PropertyInput label={t('common.width')} type="number" value={scene.cameraBounds.width} onChange={(val) => onUpdate({ cameraBounds: { ...scene.cameraBounds!, width: val as number } })} />
+                        <PropertyInput label={t('common.height')} type="number" value={scene.cameraBounds.height} onChange={(val) => onUpdate({ cameraBounds: { ...scene.cameraBounds!, height: val as number } })} />
                     </div>
                 )}
             </div>
@@ -536,6 +541,7 @@ const GameSettingsEditor: React.FC<{
     projectData: ProjectData;
     onUpdate: (updates: Partial<ProjectData>) => void;
 }> = ({ projectData, onUpdate }) => {
+    const { t } = useLanguage();
     const { orientation = 'landscape', gameWidth = 1024, gameHeight = 768, joystick } = projectData;
 
     const handleOrientationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -590,39 +596,58 @@ const GameSettingsEditor: React.FC<{
 
     return (
         <div className="space-y-4 pt-4 border-t border-gray-800">
-            <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-400">Configuración del Juego</h3>
+            <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-400">{t('properties.gameSettings')}</h3>
              <div className="flex flex-col">
-                <label className="text-xs text-gray-400 mb-1">Orientación</label>
+                <label className="text-xs text-gray-400 mb-1">{t('properties.orientation')}</label>
                 <select
                     value={orientation}
                     onChange={handleOrientationChange}
                     className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1.5 text-sm w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 >
-                    <option value="landscape">Horizontal (Landscape)</option>
-                    <option value="portrait">Vertical (Portrait)</option>
+                    <option value="landscape">{t('properties.landscape')}</option>
+                    <option value="portrait">{t('properties.portrait')}</option>
                 </select>
             </div>
             <div className="flex flex-col">
-                <label className="text-xs text-gray-400 mb-1">Resolución de Pantalla</label>
-                <select
-                    value={isCustom ? 'custom' : currentResValue}
-                    onChange={handleResolutionChange}
-                    className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1.5 text-sm w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                >
-                    {isCustom && <option value="custom">Personalizada ({gameWidth}x${gameHeight})</option>}
-                    {availableResolutions.map(res => (
-                        <option key={`${res.width}x${res.height}`} value={`${res.width}x${res.height}`}>
-                            {res.width} x {res.height} ({res.name})
-                        </option>
-                    ))}
-                </select>
+                <label className="text-xs text-gray-400 mb-1">{t('properties.screenResolution')}</label>
+                <div className="flex gap-2 mb-2">
+                    <select
+                        value={isCustom ? 'custom' : currentResValue}
+                        onChange={handleResolutionChange}
+                        className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1.5 text-sm flex-grow focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    >
+                        {isCustom && <option value="custom">{t('properties.custom')} ({gameWidth}x{gameHeight})</option>}
+                        {availableResolutions.map(res => (
+                            <option key={`${res.width}x${res.height}`} value={`${res.width}x${res.height}`}>
+                                {res.width} x {res.height} ({res.name})
+                            </option>
+                        ))}
+                    </select>
+                    <button 
+                        onClick={() => onUpdate({ gameWidth: window.innerWidth, gameHeight: window.innerHeight })}
+                        className="bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded-md text-xs transition-colors"
+                        title={t('properties.adaptToScreen')}
+                    >
+                        {t('properties.adapt')}
+                    </button>
+                </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-                <PropertyInput label="Ancho del Juego" type="number" value={gameWidth} onChange={(val) => onUpdate({ gameWidth: val as number })} />
-                <PropertyInput label="Alto del Juego" type="number" value={gameHeight} onChange={(val) => onUpdate({ gameHeight: val as number })} />
+                <PropertyInput label={t('properties.gameWidth')} type="number" value={gameWidth} onChange={(val) => onUpdate({ gameWidth: val as number })} />
+                <PropertyInput label={t('properties.gameHeight')} type="number" value={gameHeight} onChange={(val) => onUpdate({ gameHeight: val as number })} />
             </div>
+            <label className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800/50 p-2 rounded-md cursor-pointer">
+                <input 
+                    type="checkbox" 
+                    checked={projectData.responsive || false} 
+                    onChange={(e) => onUpdate({ responsive: e.target.checked })} 
+                    className="form-checkbox bg-gray-700 border-gray-600 text-indigo-500 focus:ring-indigo-500" 
+                />
+                {t('properties.responsiveFullscreen')}
+            </label>
+            <p className="text-xs text-gray-500 px-2">{t('properties.responsiveDescription')}</p>
             <div className="pt-4 border-t border-gray-700/50 space-y-2">
-                <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-400">Controles Táctiles</h3>
+                <h3 className="font-semibold text-xs uppercase tracking-wider text-gray-400">{t('properties.touchControls')}</h3>
                 <label className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800/50 p-2 rounded-md">
                     <input 
                         type="checkbox" 
@@ -641,32 +666,32 @@ const GameSettingsEditor: React.FC<{
                             });
                         }}
                         className="form-checkbox bg-gray-700 border-gray-600 text-indigo-500 focus:ring-indigo-500" />
-                    Habilitar Joystick Virtual
+                    {t('properties.enableJoystick')}
                 </label>
                 {joystick?.enabled && (
                     <div className="space-y-2">
                         <div className="flex flex-col bg-gray-800/50 p-2 rounded-md">
-                             <label className="text-xs text-gray-400 mb-1">Posición del Joystick</label>
+                             <label className="text-xs text-gray-400 mb-1">{t('properties.joystickPosition')}</label>
                              <div className="flex bg-gray-700 rounded-md p-1">
                                 <button
                                     onClick={() => onUpdate({ joystick: { ...joystick, position: 'left' }})}
                                     className={`flex-1 py-1 text-sm rounded transition-colors ${joystick.position !== 'right' ? 'bg-indigo-600 text-white' : 'hover:bg-gray-600'}`}
-                                >Izquierda</button>
+                                >{t('properties.left')}</button>
                                 <button
                                     onClick={() => onUpdate({ joystick: { ...joystick, position: 'right' }})}
                                     className={`flex-1 py-1 text-sm rounded transition-colors ${joystick.position === 'right' ? 'bg-indigo-600 text-white' : 'hover:bg-gray-600'}`}
-                                >Derecha</button>
+                                >{t('properties.right')}</button>
                             </div>
                         </div>
                         <div className="bg-gray-800/50 p-2 rounded-md grid grid-cols-2 gap-2">
                              <PropertyInput 
-                                label="Tamaño (px)" 
+                                label={t('properties.sizePx')} 
                                 type="number" 
                                 value={joystick.size ?? 120} 
                                 onChange={v => onUpdate({ joystick: { ...joystick, size: v as number }})} 
                             />
                             <PropertyInput 
-                                label="Opacidad (0-1)" 
+                                label={t('properties.opacity')} 
                                 type="number" 
                                 step={0.1}
                                 value={joystick.opacity ?? 0.5} 
@@ -682,6 +707,7 @@ const GameSettingsEditor: React.FC<{
 
 
 const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObject, projectData, onUpdateProjectData, onUpdateObject, onDeleteObject, onCloneObject, onAddAsset, width, onToggleCollapse }) => {
+  const { t } = useLanguage();
   const [isDragOver, setIsDragOver] = useState(false);
   const [isBehaviorModalOpen, setIsBehaviorModalOpen] = useState(false);
   const [isAssetPickerOpen, setIsAssetPickerOpen] = useState(false);
@@ -887,30 +913,30 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                         />
                     )}
                     
-                    <PropertyInput label="Nombre" value={selectedObject.name} onChange={(val) => handleUpdate({ name: val as string })} />
+                    <PropertyInput label={t('common.name')} value={selectedObject.name} onChange={(val) => handleUpdate({ name: val as string })} />
                     
                     <div className="pt-4 border-t border-gray-800 space-y-2">
-                        <h3 className="font-semibold text-xs uppercase tracking-wider">Transformación</h3>
+                        <h3 className="font-semibold text-xs uppercase tracking-wider">{t('properties.transformation')}</h3>
                         <div className="grid grid-cols-2 gap-2">
                             <PropertyInput label="X" type="number" step={0.1} value={selectedObject.x} onChange={(val) => handleUpdate({ x: val as number })} />
                             <PropertyInput label="Y" type="number" step={0.1} value={selectedObject.y} onChange={(val) => handleUpdate({ y: val as number })} />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                            <PropertyInput label="Ancho" type="number" value={selectedObject.width} onChange={(val) => handleUpdate({ width: val as number })} />
-                            <PropertyInput label="Alto" type="number" value={selectedObject.height} onChange={(val) => handleUpdate({ height: val as number })} />
+                            <PropertyInput label={t('common.width')} type="number" value={selectedObject.width} onChange={(val) => handleUpdate({ width: val as number })} />
+                            <PropertyInput label={t('common.height')} type="number" value={selectedObject.height} onChange={(val) => handleUpdate({ height: val as number })} />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
-                            <PropertyInput label="Escala X" type="number" value={selectedObject.scaleX ?? 1} onChange={(val) => handleUpdate({ scaleX: val as number })} />
-                            <PropertyInput label="Escala Y" type="number" value={selectedObject.scaleY ?? 1} onChange={(val) => handleUpdate({ scaleY: val as number })} />
+                            <PropertyInput label={t('properties.scaleX')} type="number" value={selectedObject.scaleX ?? 1} onChange={(val) => handleUpdate({ scaleX: val as number })} />
+                            <PropertyInput label={t('properties.scaleY')} type="number" value={selectedObject.scaleY ?? 1} onChange={(val) => handleUpdate({ scaleY: val as number })} />
                         </div>
-                        <PropertyInput label="Rotación (°)" type="number" value={selectedObject.rotation ?? 0} onChange={(val) => handleUpdate({ rotation: val as number })} />
+                        <PropertyInput label={t('properties.rotation')} type="number" value={selectedObject.rotation ?? 0} onChange={(val) => handleUpdate({ rotation: val as number })} />
                     </div>
 
                     <div className="pt-4 border-t border-gray-800 space-y-2">
-                        <h3 className="font-semibold text-xs uppercase tracking-wider">Apariencia</h3>
+                        <h3 className="font-semibold text-xs uppercase tracking-wider">{t('properties.appearance')}</h3>
                         <div className="flex items-end gap-2">
                             <div className="flex-grow">
-                                <label className="text-xs text-gray-400 mb-1 block">Color Sólido</label>
+                                <label className="text-xs text-gray-400 mb-1 block">{t('properties.solidColor')}</label>
                                 <input 
                                     type="color" 
                                     value={selectedObject.color} 
@@ -986,7 +1012,7 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                     </div>
                     
                     <div className="pt-4 border-t border-gray-800 space-y-2">
-                        <h3 className="font-semibold text-xs uppercase tracking-wider">Física y Colisiones</h3>
+                        <h3 className="font-semibold text-xs uppercase tracking-wider">{t('properties.physicsAndCollisions')}</h3>
                         <label className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800/50 p-2 rounded-md cursor-pointer">
                             <input 
                                 type="checkbox" 
@@ -994,9 +1020,9 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                                 onChange={handleToggleSolid} 
                                 className="form-checkbox bg-gray-700 border-gray-600 text-indigo-500 focus:ring-indigo-500" 
                             />
-                            Sólido (Bloquea a otros objetos)
+                            {t('properties.solid')}
                         </label>
-                        <p className="text-xs text-gray-500 px-2">Los objetos con físicas (como el jugador) no podrán atravesarlo.</p>
+                        <p className="text-xs text-gray-500 px-2">{t('properties.solidDescription')}</p>
 
                         <label className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800/50 p-2 rounded-md cursor-pointer mt-2">
                             <input 
@@ -1005,9 +1031,9 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                                 onChange={handleToggleTouchable} 
                                 className="form-checkbox bg-gray-700 border-gray-600 text-indigo-500 focus:ring-indigo-500" 
                             />
-                            Detectable en colisiones (Tocable)
+                            {t('properties.touchable')}
                         </label>
-                        <p className="text-xs text-gray-500 px-2">Permite que este objeto active eventos 'Al Colisionar Con'. Desactívalo para objetos de fondo.</p>
+                        <p className="text-xs text-gray-500 px-2">{t('properties.touchableDescription')}</p>
                         
                          <div className="pt-2 border-t border-gray-700/50 mt-2 space-y-2">
                             <label className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800/50 p-2 rounded-md cursor-pointer">
@@ -1017,18 +1043,18 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                                     onChange={handleToggleCustomCollision}
                                     className="form-checkbox bg-gray-700 border-gray-600 text-indigo-500 focus:ring-indigo-500" 
                                 />
-                                Usar tamaño de colisión personalizado
+                                {t('properties.useCustomCollision')}
                             </label>
                             {selectedObject.useCustomCollision && (
                                 <div className="bg-gray-800/50 p-2 rounded-md space-y-2">
-                                     <p className="text-xs text-gray-500 px-2">Define una caja de colisión diferente al tamaño visual del objeto.</p>
+                                     <p className="text-xs text-gray-500 px-2">{t('properties.customCollisionDescription')}</p>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <PropertyInput label="Ancho" type="number" value={selectedObject.collision?.width ?? selectedObject.width} onChange={v => handleUpdateCollisionProp('width', v as number)} />
-                                        <PropertyInput label="Alto" type="number" value={selectedObject.collision?.height ?? selectedObject.height} onChange={v => handleUpdateCollisionProp('height', v as number)} />
+                                        <PropertyInput label={t('common.width')} type="number" value={selectedObject.collision?.width ?? selectedObject.width} onChange={v => handleUpdateCollisionProp('width', v as number)} />
+                                        <PropertyInput label={t('common.height')} type="number" value={selectedObject.collision?.height ?? selectedObject.height} onChange={v => handleUpdateCollisionProp('height', v as number)} />
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        <PropertyInput label="Desplazamiento X" type="number" value={selectedObject.collision?.offsetX ?? 0} onChange={v => handleUpdateCollisionProp('offsetX', v as number)} />
-                                        <PropertyInput label="Desplazamiento Y" type="number" value={selectedObject.collision?.offsetY ?? 0} onChange={v => handleUpdateCollisionProp('offsetY', v as number)} />
+                                        <PropertyInput label={t('properties.offsetX')} type="number" value={selectedObject.collision?.offsetX ?? 0} onChange={v => handleUpdateCollisionProp('offsetX', v as number)} />
+                                        <PropertyInput label={t('properties.offsetY')} type="number" value={selectedObject.collision?.offsetY ?? 0} onChange={v => handleUpdateCollisionProp('offsetY', v as number)} />
                                     </div>
                                 </div>
                             )}
@@ -1036,65 +1062,65 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                     </div>
 
                     <div className="flex flex-col">
-                        <label className="text-xs text-gray-400 mb-1">Dirección</label>
+                        <label className="text-xs text-gray-400 mb-1">{t('properties.direction')}</label>
                         <div className="flex bg-gray-800 rounded-md p-1">
                             <button
                                 onClick={() => handleUpdate({ direction: 'left' })}
                                 className={`flex-1 py-1 text-sm rounded transition-colors ${selectedObject.direction === 'left' ? 'bg-indigo-600 text-white' : 'hover:bg-gray-700'}`}
-                            >Izquierda</button>
+                            >{t('properties.left')}</button>
                             <button
                                 onClick={() => handleUpdate({ direction: 'right' })}
                                 className={`flex-1 py-1 text-sm rounded transition-colors ${selectedObject.direction !== 'left' ? 'bg-indigo-600 text-white' : 'hover:bg-gray-700'}`}
-                            >Derecha</button>
+                            >{t('properties.right')}</button>
                         </div>
                     </div>
                     <div className="flex items-end gap-2">
                         <div className="flex-grow">
-                            <PropertyInput label="Índice Z" type="number" value={selectedObject.zIndex} onChange={(val) => handleUpdate({ zIndex: val as number })} />
+                            <PropertyInput label={t('properties.zIndex')} type="number" value={selectedObject.zIndex} onChange={(val) => handleUpdate({ zIndex: val as number })} />
                         </div>
                         <div className="flex flex-col gap-1">
-                            <button onClick={() => handleUpdate({ zIndex: selectedObject.zIndex + 1 })} className="p-1.5 bg-gray-800 hover:bg-indigo-600 rounded-md" title="Adelante">
+                            <button onClick={() => handleUpdate({ zIndex: selectedObject.zIndex + 1 })} className="p-1.5 bg-gray-800 hover:bg-indigo-600 rounded-md" title={t('properties.bringForward')}>
                                 <UpArrowIcon />
                             </button>
-                            <button onClick={() => handleUpdate({ zIndex: selectedObject.zIndex - 1 })} className="p-1.5 bg-gray-800 hover:bg-indigo-600 rounded-md" title="Atrás">
+                            <button onClick={() => handleUpdate({ zIndex: selectedObject.zIndex - 1 })} className="p-1.5 bg-gray-800 hover:bg-indigo-600 rounded-md" title={t('properties.sendBackward')}>
                                 <DownArrowIcon />
                             </button>
                         </div>
                     </div>
                     
                      <div className="pt-4 border-t border-gray-800 space-y-2">
-                        <h3 className="font-semibold text-xs uppercase tracking-wider">Estadísticas RPG</h3>
+                        <h3 className="font-semibold text-xs uppercase tracking-wider">{t('properties.rpgStats')}</h3>
                         <div className="grid grid-cols-2 gap-2">
                             <PropertyInput label="HP" type="number" value={selectedObject.stats?.hp ?? 0} onChange={val => handleUpdateStats({ hp: val as number })} />
-                            <PropertyInput label="HP Máx" type="number" value={selectedObject.stats?.maxHp ?? 0} onChange={val => handleUpdateStats({ maxHp: val as number })} />
-                            <PropertyInput label="Ataque" type="number" value={selectedObject.stats?.attack ?? 0} onChange={val => handleUpdateStats({ attack: val as number })} />
+                            <PropertyInput label={t('properties.maxHp')} type="number" value={selectedObject.stats?.maxHp ?? 0} onChange={val => handleUpdateStats({ maxHp: val as number })} />
+                            <PropertyInput label={t('properties.attack')} type="number" value={selectedObject.stats?.attack ?? 0} onChange={val => handleUpdateStats({ attack: val as number })} />
                         </div>
                     </div>
 
 
                     <div className="pt-4 border-t border-gray-800 space-y-2">
-                        <h3 className="font-semibold text-xs uppercase tracking-wider mb-2">Visualización &amp; UI</h3>
+                        <h3 className="font-semibold text-xs uppercase tracking-wider mb-2">{t('properties.visualizationAndUI')}</h3>
                         <label className="flex items-center gap-2 text-sm text-gray-300 bg-gray-800/50 p-2 rounded-md">
                             <input type="checkbox" checked={selectedObject.isUI || false} onChange={(e) => handleUpdate({ isUI: e.target.checked })} className="form-checkbox bg-gray-700 border-gray-600 text-indigo-500 focus:ring-indigo-500" />
-                            Es Elemento de UI (Posición Fija)
+                            {t('properties.isUI')}
                         </label>
                         {selectedObject.isUI && (
                             <>
-                            <PropertyInput label="Contenido de Texto" value={selectedObject.text || ''} onChange={(val) => handleUpdate({ text: val as string })} />
+                            <PropertyInput label={t('properties.textContent')} value={selectedObject.text || ''} onChange={(val) => handleUpdate({ text: val as string })} />
                              <div className="flex flex-col">
-                                <label className="text-xs text-gray-400 mb-1">Acción del Botón</label>
+                                <label className="text-xs text-gray-400 mb-1">{t('properties.buttonAction')}</label>
                                 <select
                                     value={selectedObject.controlAction || 'none'}
                                     onChange={(e) => handleUpdate({ controlAction: e.target.value as any })}
                                     className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1.5 text-sm w-full focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                                 >
-                                    <option value="none">Ninguna</option>
-                                    <option value="moveLeft">Mover Izquierda</option>
-                                    <option value="moveRight">Mover Derecha</option>
-                                    <option value="moveUp">Mover Arriba</option>
-                                    <option value="moveDown">Mover Abajo</option>
-                                    <option value="jump">Saltar</option>
-                                    <option value="attack">Atacar</option>
+                                    <option value="none">{t('properties.none')}</option>
+                                    <option value="moveLeft">{t('properties.moveLeft')}</option>
+                                    <option value="moveRight">{t('properties.moveRight')}</option>
+                                    <option value="moveUp">{t('properties.moveUp')}</option>
+                                    <option value="moveDown">{t('properties.moveDown')}</option>
+                                    <option value="jump">{t('properties.jump')}</option>
+                                    <option value="attack">{t('properties.attack')}</option>
                                 </select>
                             </div>
                             </>
@@ -1114,12 +1140,12 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
 
 
                     <div className="pt-4 border-t border-gray-800 space-y-2">
-                        <h3 className="font-semibold mb-2">Comportamientos</h3>
+                        <h3 className="font-semibold mb-2">{t('properties.behaviors')}</h3>
                         {selectedObject.behaviors?.map(behavior => (
                             <div key={behavior.name} className="bg-gray-800/50 p-2 rounded-md border border-gray-700">
                                 <div className="flex justify-between items-center mb-2">
                                     <h4 className="text-sm font-bold text-indigo-300">{behavior.name}</h4>
-                                    <button onClick={() => handleRemoveBehavior(behavior.name)} title="Quitar Comportamiento" className="p-1 hover:bg-red-500/50 rounded-full"><TrashIcon /></button>
+                                    <button onClick={() => handleRemoveBehavior(behavior.name)} title={t('common.delete')} className="p-1 hover:bg-red-500/50 rounded-full"><TrashIcon /></button>
                                 </div>
                                 <div className="space-y-2">
                                     {Object.entries(behavior.properties).map(([key, value]) => {
@@ -1131,7 +1157,7 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                                                         value={value}
                                                         onChange={(e) => handleUpdateBehaviorProperty(behavior.name, key, e.target.value)}
                                                         className="bg-gray-800 border border-gray-700 rounded-md px-2 py-1.5 text-sm w-full h-32 font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                                        placeholder="Usa cualquier caracter para sólido, '0' o espacio para vacío."
+                                                        placeholder={t('properties.tilemapPlaceholder')}
                                                     />
                                                 </div>
                                             )
@@ -1154,7 +1180,7 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                         onClick={() => setIsBehaviorModalOpen(true)}
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                            Añadir Comportamiento
+                            {t('properties.addBehavior')}
                         </button>
                     </div>
                 </div>
@@ -1162,10 +1188,10 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
         ) : (
              <>
                 <div className="p-2 border-b border-gray-800 flex justify-between items-center">
-                    <button onClick={onToggleCollapse} title="Colapsar Panel" className="p-2 -ml-2 hover:bg-gray-800 rounded-md hidden md:block">
+                    <button onClick={onToggleCollapse} title={t('common.close')} className="p-2 -ml-2 hover:bg-gray-800 rounded-md hidden md:block">
                         <CollapseIcon />
                     </button>
-                    <h2 className="text-lg font-semibold">Propiedades</h2>
+                    <h2 className="text-lg font-semibold">{t('sidebar.properties')}</h2>
                     <div className="w-8"></div>
                 </div>
                 <div className="flex-grow p-4 overflow-y-auto">
@@ -1175,7 +1201,7 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
                            <GameSettingsEditor projectData={projectData} onUpdate={onUpdateProjectData} />
                         </>
                     ) : (
-                        <p className="text-sm text-gray-500 text-center">No hay ninguna escena activa.</p>
+                        <p className="text-sm text-gray-500 text-center">{t('properties.noActiveScene')}</p>
                     )}
                 </div>
              </>
