@@ -886,7 +886,7 @@ const PropertiesInspector: React.FC<PropertiesInspectorProps> = ({ selectedObjec
 
 
   return (
-    <aside className="bg-gray-900 border-l border-gray-800 flex flex-col shrink-0 h-full md:h-auto md:w-auto" style={{ width: `${width}px` }}>
+    <aside className="bg-gray-900 border-l border-gray-800 flex flex-col shrink-0 h-full md:h-full md:w-auto" style={{ width: `${width}px` }}>
         {selectedObject ? (
             <>
                 <div className="p-2 border-b border-gray-800 flex justify-between items-center">

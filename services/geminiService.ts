@@ -1,14 +1,20 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type { GameEvent } from '../types';
 
-if (!process.env.API_KEY) {
-  // This is a placeholder for development. 
-  // In a real environment, the API key should be securely managed.
-  // The web app environment will provide this.
-  console.warn("API_KEY environment variable not set. Using a placeholder. This will fail if you make an API call.");
-}
+let aiInstance: GoogleGenAI | null = null;
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+const getAI = () => {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    if (!apiKey) {
+      console.warn("GEMINI_API_KEY environment variable not set. This will fail if you make an API call.");
+      // We don't throw here to avoid crashing at module load time, 
+      // but we will throw when actually trying to use it.
+    }
+    aiInstance = new GoogleGenAI({ apiKey: apiKey || '' });
+  }
+  return aiInstance;
+};
 
 const eventSchema = {
   type: Type.OBJECT,
@@ -97,6 +103,7 @@ const eventSchema = {
 
 export const generateEventLogic = async (prompt: string): Promise<{ events: GameEvent[] }> => {
   try {
+    const ai = getAI();
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Basado en la petición del usuario, genera un objeto JSON estructurado que represente la lógica del juego. Aquí hay algunos ejemplos:

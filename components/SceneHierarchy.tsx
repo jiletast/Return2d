@@ -318,7 +318,7 @@ const SceneHierarchy: React.FC<SceneHierarchyProps> = ({ scenes, activeSceneId, 
   );
 
   return (
-    <aside className="bg-gray-900 border-r border-gray-800 flex flex-col shrink-0 h-full md:h-auto md:w-auto" style={{ width: `${width}px` }}>
+    <aside className="bg-gray-900 border-r border-gray-800 flex flex-col shrink-0 h-full md:h-full md:w-auto" style={{ width: `${width}px` }}>
       <div className="p-2 border-b border-gray-800">
         <div className="flex justify-between items-center">
             <h2 className="text-lg font-semibold">Escena</h2>
